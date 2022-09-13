@@ -18,7 +18,21 @@ exports.handler = (event, context) => {
     case 'Custom::ApiDeployment':
       var restApiId = (event.ResourceProperties.RestApiId !== 'undefined' ? event.ResourceProperties.RestApiId : null);
       var stageName = (event.ResourceProperties.StageName !== 'undefined' ? event.ResourceProperties.StageName : null);
-      apigateway.createDeployment({ restApiId: restApiId, stageName: stageName, description: event.ResourceProperties.DeploymentTime }).promise().then((data) => {
+      var stageDescription = (event.ResourceProperties.stageDescription !== 'undefined' ? event.ResourceProperties.stageDescription : null);
+      var description = (event.ResourceProperties.description !== 'undefined' ? event.ResourceProperties.description : null);
+      var tracingEnabled = (event.ResourceProperties.tracingEnabled !== 'undefined' ? event.ResourceProperties.tracingEnabled : null);
+      var variables = (event.ResourceProperties.variables !== 'undefined' ? event.ResourceProperties.variables : null);
+
+      var params = {
+        restApiId: restApiId,
+        description: description,
+        stageDescription: stageDescription,
+        stageName: stageName,
+        tracingEnabled: tracingEnabled,
+        variables: variables
+      };
+
+      apigateway.createDeployment(params).promise().then((data) => {
         return response.send(event, context, response.SUCCESS, null, data.id);
       }).catch((err) => {
         return response.send(event, context, response.FAILED, err);
