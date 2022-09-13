@@ -1,0 +1,63 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Creación de Lambda Edge",
+  "Parameters": {
+    "DeploymentTime": {
+      "Type": "String",
+      "Description": "Se utiliza para crear la nueva versión de la lambda"
+    },
+    "KeyFileLambdaEdge": {
+      "Type": "String",
+      "Description": "Nombre del archivo con el deployment de la lambda edge"
+    },
+    "Project": {
+      "Type": "String",
+      "Description": "Nombre del archivo con el deployment de la lambda para generar versión",
+      "Default": "kiire"
+    }
+  },
+  "Resources": {
+    "RoleLambdaEdge": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": [ "lambda.amazonaws.com", "edgelambda.amazonaws.com" ] },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Description": "Rol por defecto para lambda-edge",
+        "MaxSessionDuration": 3600,
+        "RoleName": { "Fn::Sub" : [ "${project}-role-lambda-edge", { "project": { "Ref": "Project" } } ] }
+      }
+    },
+    "LambdaEdge": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "test-my-bucket-aws",
+          "S3Key": { "Ref": "KeyFileLambdaEdge" }
+        },
+        "Description": "Lambda para habilitar encabezados de seguridad en el sitio",
+        "FunctionName": { "Fn::Sub" : [ "${project}-lambda-edge", { "project": { "Ref": "Project" } } ] },
+        "Handler": "index.handler",
+        "MemorySize": "128",
+        "Role": { "Fn::GetAtt" : [ "RoleLambdaEdge", "Arn" ] },
+        "Runtime": "nodejs16.x",
+        "Timeout": 5
+      }
+    },
+    "LambdaVersion": {
+      "Type": "Custom::LambdaVersion",
+      "Properties": {
+        "ServiceToken": { "Fn::ImportValue": "DeploymentLambdaArn" },
+        "FunctionName": { "Ref": "LambdaEdge" },
+        "DeploymentTime": { "Ref": "DeploymentTime" }
+      }
+    }
+  }
+}
