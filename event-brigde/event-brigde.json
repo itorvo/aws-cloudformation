@@ -1,0 +1,26 @@
+
+
+
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Creación de Parameter Store",
+  "Parameters": {
+    "Environment": {
+      "Description": "Parametro para establecer el ambiente",
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "qa", "prod"]
+    }
+  },
+  "Resources": {
+    "EventBus": {
+      "Type" : "AWS::Events::EventBus",
+      "Properties" : {
+          "Name" : "MyEventBusTest"
+        }
+    }
+  },
+  "Outputs": {
+    
+  }
+}
