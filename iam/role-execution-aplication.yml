@@ -159,6 +159,30 @@ Resources:
       RoleName: !Sub ${Project}-${Environment}-lambda-edge-role-execution
       Path: /
 
+  RoleEmailChannelPinpoint:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: pinpoint.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Acceso a envío de notificaciones
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - mobileanalytics:PutEvents
+                  - mobileanalytics:PutItems
+                Effect: Allow
+                Resource: '*'
+          PolicyName: kiire-policy-pinpoint-notification-access
+      RoleName: !Sub ${Project}-${Environment}-pinpoint-role-emailchannel-notification-access
+  
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -200,3 +224,13 @@ Outputs:
     Value: !GetAtt RoleLambdaEdgeExecution.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleLambdaEdgeExecutionArn
+  RoleEmailChannelPinpoint:
+    Description: Email Channel Pinpoint Role Name
+    Value: !Ref RoleEmailChannelPinpoint
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleEmailChannelPinpoint
+  RoleEmailChannelPinpointArn:
+    Description: Email Channel Pinpoint Role Arn
+    Value: !GetAtt RoleEmailChannelPinpoint.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleEmailChannelPinpointArn

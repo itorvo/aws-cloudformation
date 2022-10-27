@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Pinpoint App, Identity SES, Template Pinpoint
+Parameters:
+  EmailIdentidadSES:
+    Description: Identidad para AWS SES Identity
+    Type: String
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+  Environment:
+    Description: Ambiente del projecto
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+  EnableEmailChannel:
+    Description: Requiere Canal de Correo
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+  EnableSmsChannel:
+    Description: Requiere Canal de SMS
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+Conditions:
+  CEnableEmailChannel: !Equals [ "true", !Ref EnableEmailChannel ]
+  CSmsChannel: !Equals [ "true", !Ref EnableSmsChannel ]
+Resources:
+  IdentitySES:
+    Type: AWS::SES::EmailIdentity
+    Condition: CEnableEmailChannel
+    Properties:
+      EmailIdentity:
+        Ref: EmailIdentidadSES
+  PinpointApp:
+    Type: AWS::Pinpoint::App
+    Properties:
+      Name: !Sub ${Project}-${Environment}-app
+  RolePinpoint:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: pinpoint.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Acceso a env?o de notificaciones
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - mobileanalytics:PutEvents
+                  - mobileanalytics:PutItems
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - PinpointApp
+                    - Arn
+          PolicyName: kiire-policy-pinpoint-notification-access
+      RoleName: kiire-role-pinpoint-notification-access
+  EmailChannel:
+    Type: AWS::Pinpoint::EmailChannel
+    Condition: CEnableEmailChannel
+    Properties:
+      ApplicationId:
+        Ref: PinpointApp
+      Enabled: true
+      FromAddress:
+        Ref: EmailIdentidadSES
+      Identity:
+        Fn::Sub:
+          - arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${identity}
+          - identity:
+              Ref: EmailIdentidadSES
+      RoleArn:
+        Fn::GetAtt:
+          - RolePinpoint
+          - Arn
+  SmsChannel:
+    Type: AWS::Pinpoint::SMSChannel
+    Condition: CSmsChannel
+    Properties: 
+      ApplicationId: !Ref PinpointApp
+      Enabled: true
+Outputs:
+  PinpointApp:
+    Description: ID Pinpoint App
+    Value:
+      Ref: PinpointApp
+    Export:
+      Name: PinpointAppID
