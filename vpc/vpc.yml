@@ -1,0 +1,496 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Creación de VPC"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: "A friendly environment name that will be used for namespacing all resources (valid options are dev, qa or production)"
+    AllowedValues: [ dev, qa, prod ]
+  Project:
+    Type: String
+    Default: CopaPragma
+  VPCCIDR:
+    Type: String
+    Default: 172.22.0.0/16
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBPUB1:
+    Type: String
+    Default: 172.22.1.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBPUB2:
+    Type: String
+    Default: 172.22.2.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBPRIV1:
+    Type: String
+    Default: 172.22.3.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBPRIV2:
+    Type: String
+    Default: 172.22.4.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBDATA1:
+    Type: String
+    Default: 172.22.5.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  SUBDATA2:
+    Type: String
+    Default: 172.22.6.0/24
+    AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
+    ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
+  RetentionLogs:
+    Description: Retention Days for log groups
+    Type: String
+    Default: 180
+  RequiredVpcFlow:
+    Type: String
+    Default: "false"
+    Description: "Activación de VPC Flow"
+    AllowedValues: [ "false", "true" ]
+  RequiredVpcSQS:
+    Type: String
+    Default: "false"
+    Description: "Crear VPC Endpoint para SQS"
+    AllowedValues: [ "false", "true" ]
+  RequiredVpcAPIGateway:
+    Type: String
+    Default: "false"
+    Description: "Crear VPC Endpoint para API Gateway"
+    AllowedValues: [ "false", "true" ]
+  RequiredNAT:
+    Type: String
+    Default: "false"
+    Description: "Crear NAT Gateway"
+    AllowedValues: [ "false", "true" ]
+  # AliasPrefix:
+  #   Description: Alias name prefix for kms
+  #   Type: String
+  #   Default: kms/log-group 
+Conditions:
+  EnableVpcFlow:
+    !Equals ["true", !Ref "RequiredVpcFlow"]
+  EnableVpcSQS:
+    !Equals ["true", !Ref "RequiredVpcSQS"]
+  EnableVpcAPIGateway:
+    !Equals ["true", !Ref "RequiredVpcAPIGateway"]
+  EnableNAT:
+    !Equals ["true", !Ref "RequiredNAT"]
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Sub ${VPCCIDR}
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Ambiente
+          Value: !Sub ${Environment}
+        - Key: Name
+          Value: !Sub VPC-${Project}-${Environment}
+
+## Subnet Publicas ##
+  ClusterControlPlaneSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub SG-SRV-${Project}-${Environment}
+      GroupDescription: SRV Net Sgr
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Outbound traffic (Ingresar cidr para trafico de salida)
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+      SecurityGroupIngress:
+        - CidrIp: !Sub ${VPCCIDR}
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 0
+          ToPort: 1024
+          IpProtocol: tcp
+        - CidrIp: !Sub ${VPCCIDR}
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 1024
+          ToPort: 65535
+          IpProtocol: tcp
+      Tags:
+        - Key: Name
+          Value: !Sub SG-SRV-${Project}-${Environment}
+      VpcId: !Ref VPC
+  SgrBastion:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub SG-BAS-${Project}-${Environment}
+      GroupDescription: SSH Bastion Sgr
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Outbound traffic (Ingresar cidr para trafico de salida)
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+      SecurityGroupIngress:
+        - CidrIp: 35.170.219.222/32
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+      Tags:
+        - Key: Name
+          Value: !Sub SG-BAS-${Project}-${Environment}
+      VpcId: !Ref VPC
+  SgrData:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub SG-DataBase-${Project}-${Environment}
+      GroupDescription: DataBase Sgr
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Outbound traffic (Ingresar cidr para trafico de salida)
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+      SecurityGroupIngress:
+        - CidrIp: 172.22.0.0/16
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 5432
+          ToPort: 5432
+          IpProtocol: tcp
+      Tags:
+        - Key: Name
+          Value: !Sub SG-DataBase-${Project}-${Environment}
+      VpcId: !Ref VPC
+  SgrVpceSQS:
+    Type: 'AWS::EC2::SecurityGroup'
+    Condition: EnableVpcSQS
+    Properties:
+      GroupName: !Sub SG-VPCE-SQS-${Project}-${Environment}
+      GroupDescription: VPCE SQS Sgr
+      SecurityGroupIngress:
+        - CidrIp: 172.22.0.0/16
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 443
+          ToPort: 443
+          IpProtocol: tcp
+      Tags:
+        - Key: Name
+          Value: !Sub SG-VPCE-SQS-${Project}-${Environment}
+      VpcId: !Ref VPC
+  SgrApiGateway:
+    Type: 'AWS::EC2::SecurityGroup'
+    Condition: EnableVpcAPIGateway
+    Properties:
+      GroupName: !Sub SG-VPCE-ApiGateway-${Project}-${Environment}
+      GroupDescription: VPCE ApiGateway Sgr
+      SecurityGroupIngress:
+        - CidrIp: 172.22.0.0/16
+          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
+          FromPort: 443
+          ToPort: 443
+          IpProtocol: tcp
+      Tags:
+        - Key: Name
+          Value: !Sub SG-VPCE-ApiGateway-${Project}-${Environment}
+      VpcId: !Ref VPC
+
+## Subnet Publicas ##
+  PubSub1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBPUB1} 
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-Public1-${Project}-${Environment}     
+      VpcId: !Ref VPC
+  PubSub2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBPUB2}
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-Public2-${Project}-${Environment}
+      VpcId: !Ref VPC
+
+## Subnet Privada Backend ##
+  SrvSub1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBPRIV1}
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-Services1-${Project}-${Environment}
+      VpcId: !Ref VPC
+  SrvSub2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBPRIV2}
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-Services2-${Project}-${Environment}
+      VpcId: !Ref VPC
+
+## Subnet Privada Base de datos ##
+  DataSub1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBDATA1}
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-DataBase1-${Project}-${Environment}
+      VpcId: !Ref VPC
+  DataSub2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 3
+          - Fn::GetAZs:
+              Ref: "AWS::Region"
+      CidrBlock: !Sub ${SUBDATA2}
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub Sub-DataBase2-${Project}-${Environment}
+      VpcId: !Ref VPC
+
+## NAT Gateway ##
+  NATGW1:
+    Type: 'AWS::EC2::NatGateway'
+    Condition: EnableNAT
+    DependsOn:
+      - AttIGW
+    Properties:
+      AllocationId: !GetAtt 
+        - Nat1IP
+        - AllocationId
+      SubnetId: !Ref PubSub1
+      Tags:
+        - Key: Name
+          Value: !Sub NATGW1-${Project}-${Environment}
+  Nat1IP:
+    Type: 'AWS::EC2::EIP'
+    Condition: EnableNAT
+    Properties:
+      Domain: vpc
+  Nat1RT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub RT-NAT1-${Project}-${Environment}
+        - Key: Backup
+          Value: Hora
+  NatRule01:
+    Type: 'AWS::EC2::Route'
+    Condition: EnableNAT
+    DependsOn:
+      - AttIGW
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGW1
+      RouteTableId: !Ref Nat1RT
+  AssociateNat1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: EnableNAT
+    Properties:
+      RouteTableId: !Ref Nat1RT
+      SubnetId: !Ref SrvSub1
+  AssociateNat2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: EnableNAT
+    Properties:
+      RouteTableId: !Ref Nat1RT
+      SubnetId: !Ref SrvSub2
+  AssociateNat3:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: EnableNAT
+    Properties:
+      RouteTableId: !Ref Nat1RT
+      SubnetId: !Ref DataSub1
+  AssociateNat4:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: EnableNAT
+    Properties:
+      RouteTableId: !Ref Nat1RT
+      SubnetId: !Ref DataSub2
+
+## Internet Gateway ##
+  IGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub IGW-${Project}-${Environment}
+  AttIGW:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+  PubRT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: RT-Public
+  PublicRule:
+    Type: 'AWS::EC2::Route'
+    DependsOn:
+      - AttIGW
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref PubRT
+  AssociatePub1IGW:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub1
+  AssociatePub2IGW:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub2
+  NodeInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy'
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+  
+## VPC Endpoints ##
+  SQSVPCEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Condition: EnableVpcSQS
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.sqs
+      VpcId: !Ref VPC
+      SubnetIds: 
+        - !Ref SrvSub1
+      SecurityGroupIds:
+        - !Ref SgrVpceSQS
+  APIGATEWAYVPCEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Condition: EnableVpcAPIGateway
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.execute-api 
+      VpcId: !Ref VPC
+      SubnetIds: 
+        - !Ref SrvSub1
+      SecurityGroupIds:
+        - !Ref SgrApiGateway
+
+## Enable VPC Flow ##
+  LogGroupVPCFlowLogs: 
+    Type: AWS::Logs::LogGroup
+    Condition: EnableVpcFlow
+    Properties:
+      LogGroupName: /aws/vpclogs 
+      RetentionInDays: !Ref RetentionLogs 
+      #KmsKeyId: !GetAtt KmsLoggroup.Arn
+  
+  VPCFlowLog:
+   Type: AWS::EC2::FlowLog
+   Condition: EnableVpcFlow
+   Properties:
+     DeliverLogsPermissionArn: !Sub arn:aws:iam::${AWS::AccountId}:role/VPCFlowLogs_Role
+     LogGroupName: /aws/vpclogs
+     ResourceId: !Ref VPC
+     ResourceType: VPC
+     TrafficType: ALL
+      
+Outputs:
+  Environment:
+    Description: Ambiente establecido
+    Value: !Ref Environment
+    Export:
+      Name: !Sub '${AWS::StackName}-Environment'
+  Project:
+    Description: Ambiente establecido
+    Value: !Ref Project
+    Export:
+      Name: !Sub '${AWS::StackName}-Project'
+  VPCIDO:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCID'
+  ClusterControlPlaneSecurityGroupO:
+    Description: ClusterControlPlaneSecurityGroup Output
+    Value: !Ref ClusterControlPlaneSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterControlPlaneSecurityGroup'
+  SgrBastionO:
+    Description: SgrBastion Output
+    Value: !Ref SgrBastion
+    Export:
+      Name: !Sub '${AWS::StackName}-SgrBastion'
+  PubSub1O:
+    Description: PubSub1 Output
+    Value: !Ref PubSub1
+    Export:
+      Name: !Sub '${AWS::StackName}-PubSub1'
+  PubSub2O:
+    Description: PubSub2 Output
+    Value: !Ref PubSub2
+    Export:
+      Name: !Sub '${AWS::StackName}-PubSub2'
+  SrvSub1O:
+    Description: SrvSub1 Output
+    Value: !Ref SrvSub1
+    Export:
+      Name: !Sub '${AWS::StackName}-SrvSub1'
+  SrvSub2O:
+    Description: SrvSub2 Output
+    Value: !Ref SrvSub2
+    Export:
+      Name: !Sub '${AWS::StackName}-SrvSub2'
+  NodeInstanceRole:
+    Description: The node instance role
+    Value: !GetAtt NodeInstanceRole.Arn

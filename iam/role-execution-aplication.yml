@@ -1,0 +1,202 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creacion de Roles y Politicas para Proyecto
+Parameters:
+  Environment:
+    Description: Ambiente del Proyecto.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+  Project:
+    Description: Nombre del Proyecto.
+    Type: String
+    Default: kiire
+
+Resources:
+  PolicyExecution:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${Project}-${Environment}-policy-execution-aplication
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:DeleteItem
+              - dynamodb:UpdateItem
+              - sqs:DeleteMessage
+              - cognito-idp:ForgotPassword
+              - secretsmanager:DescribeSecret
+              - cognito-idp:ConfirmSignUp
+              - sqs:ReceiveMessage
+              - cognito-idp:GetIdentityProviderByIdentifier
+              - ecs:DescribeTaskDefinition
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - execute-api:ManageConnections
+              - ecs:ListTaskDefinitions
+              - dynamodb:BatchGetItem
+              - sqs:GetQueueUrl
+              - lambda:InvokeFunction
+              - cognito-idp:VerifyUserAttribute
+              - sqs:SendMessage
+              - dynamodb:Scan
+              - sqs:GetQueueAttributes
+              - cognito-idp:ListUserPools
+              - cognito-idp:AdminUpdateUserAttributes
+              - secretsmanager:ListSecrets
+              - cognito-idp:ListUsers
+              - cognito-idp:AddCustomAttributes
+              - batch:SubmitJob
+              - dynamodb:ListTables
+              - lambda:InvokeAsync
+              - ecs:ListServices
+              - sns:Publish
+              - secretsmanager:GetSecretValue
+              - cognito-idp:InitiateAuth
+              - ecs:ListClusters
+              - cognito-idp:AdminInitiateAuth
+              - cognito-idp:ConfirmForgotPassword
+              - cognito-idp:GetUser
+              - dynamodb:ConditionCheckItem
+              - s3:*
+              - dynamodb:Query
+              - execute-api:Invoke
+              - cognito-idp:ChangePassword
+              - cognito-idp:ConfirmDevice
+            Resource: '*'
+      Roles:
+        - !Ref ECSTaskExecutionRole
+        - !Ref ECSTaskRole
+  
+  PolicyNoLogs:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${Project}-${Environment}-policy-deny-logs
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: '*'
+      Roles:
+        - !Ref ECSTaskExecutionRole
+        - !Ref ECSTaskRole
+        - !Ref RoleLambdaEdgeExecution
+  
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Sub ${Project}-${Environment}-ecs-task-execution-role
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Sub ${Project}-${Environment}-ecs-task-role
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  RoleLambdaExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Sub ${Project}-${Environment}-lambda-role-execution
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+  
+  RoleLambdaEdgeExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Sub ${Project}-${Environment}-lambda-edge-role-execution
+      Path: /
+
+Outputs:
+  ECSTaskExecutionRole:
+    Description: ECS Task Execution Role Name
+    Value: !Ref ECSTaskExecutionRole
+    Export:
+      Name: !Sub ${Project}-${Environment}-ECSTaskExecutionRole
+  ECSTaskExecutionRoleArn:
+    Description: ECS Task Execution Role Arn
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-ECSTaskExecutionRoleArn
+  ECSTaskRole:
+    Description: ECS Task Role Name
+    Value: !Ref ECSTaskRole
+    Export:
+      Name: !Sub ${Project}-${Environment}-ECSTaskRole
+  ECSTaskRoleArn:
+    Description: ECS Task Role Arn
+    Value: !GetAtt ECSTaskRole.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-ECSTaskRoleArn
+  RoleLambdaExecution:
+    Description: ECS Task Role Name
+    Value: !Ref RoleLambdaExecution
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleLambdaExecution
+  RoleLambdaExecutionArn:
+    Description: ECS Task Role Arn
+    Value: !GetAtt RoleLambdaExecution.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleLambdaExecutionArn
+  RoleLambdaEdgeExecution:
+    Description: Lambda Edge Role Name
+    Value: !Ref RoleLambdaEdgeExecution
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleLambdaEdgeExecution
+  RoleLambdaEdgeExecutionArn:
+    Description: Lambda Edge Role Arn
+    Value: !GetAtt RoleLambdaEdgeExecution.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleLambdaEdgeExecutionArn

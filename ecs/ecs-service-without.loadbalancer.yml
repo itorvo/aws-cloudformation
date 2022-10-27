@@ -1,0 +1,170 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploy ECS Service - Fargate
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+  MicroServiceName:
+    Description: Nombre del MicroServicio
+    Type: String
+    Default: dummy
+    #AllowedPattern:
+  Port:
+    Description: Puerto que expondrá el MicroServicio
+    Type: Number
+    Default: 9000
+    MinValue: 9000
+    MaxValue: 9999
+  
+  CPU:
+    Description: Cantidad de CPU asignada
+    Type: String
+    Default: "256"
+    AllowedValues:
+      - "256"
+      - "512"
+  RAM:
+    Description: Cantidad de RAM asignada
+    Type: String
+    Default: "512"
+    AllowedValues:
+      - "512"
+      - "1024"
+  NumberTask:
+    Description: Cantidad de Tareas deseadas
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 2
+
+  EnableDiscoveryService:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  EnablePublicIp:
+    Type: String
+    Default: DISABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+  
+Conditions:
+  CDiscoveryService: !Equals ["true", !Ref EnableDiscoveryService ]
+Resources:
+  EcrRegistry:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
+
+  DiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Condition: CDiscoveryService
+    Properties: 
+      Description: !Sub Discovery Service for ${MicroServiceName} app
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+      HealthCheckCustomConfig: 
+        FailureThreshold: 1
+      Name: !Ref MicroServiceName
+      NamespaceId:
+        Fn::ImportValue:
+          !Sub "${Project}-${Environment}-NameSpaceCloudMapId"
+  
+  CloudWatchLogsGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: /ecs/kiire-ecs-master-data
+      RetentionInDays: 7
+  
+  TaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      Family: !Sub "${Project}-${Environment}-${MicroServiceName}"
+      Cpu: !Ref CPU
+      Memory: !Ref RAM
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn:
+        Fn::ImportValue:
+          !Sub "${Project}-${Environment}-ECSTaskExecutionRoleArn"
+      TaskRoleArn:
+        Fn::ImportValue:
+          !Sub "${Project}-${Environment}-ECSTaskRoleArn"
+      ContainerDefinitions:
+        - Name: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
+          # EnvironmentFiles:
+          #   - Type: s3
+          #     Value: arn:aws:s3:::kiire-s3-ecs-env-files-dev/dev/kiire-ecs-env-file-dev.env
+          # Environment:
+          # Secrets:
+          #   - Name: stage
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/STAGE
+          #   - Name: DB_PASSWORD
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_PASSWORD_DEV
+          #   - Name: DB_URL
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_URL_DEV
+          #   - Name: DB_USERNAME
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_USERNAME_DEV
+          Image: !Join 
+            - ':'
+            - - !GetAtt EcrRegistry.Arn
+              - latest
+          PortMappings:
+            - ContainerPort: !Ref Port
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref 'AWS::Region'
+              # awslogs-stream-prefix: ecs
+  ECSService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      ServiceName: !Sub "${Project}-${Environment}-${MicroServiceName}"
+      Cluster:
+        Fn::ImportValue:
+          !Sub "${Project}-${Environment}-Cluster"
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: !Ref NumberTask
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: !Ref EnablePublicIp
+          SecurityGroups:
+            - Fn::ImportValue:
+                !Sub "${Project}-${Environment}-SecurityGroupApp"
+          Subnets:
+            - Fn::ImportValue:
+                !Sub "${Project}-${Environment}-SubnetPrivateApp1"
+            - Fn::ImportValue:
+                !Sub "${Project}-${Environment}-SubnetPrivateApp2"
+      ServiceRegistries:
+        - RegistryArn: !If [ CDiscoveryService, !GetAtt DiscoveryService.Arn, !Ref "AWS::NoValue" ]
+      TaskDefinition: !Ref TaskDefinition
+  
+# Outputs:
+#   ClusterName:
+#     Description: Cluster
+#     Value: !Ref Cluster01
+#   SecurityGroupServices:
+#     Description: "ID Security Group de Servicios de ECS"
+#     Value: !Ref FargateContainerSecurityGroup
+#     Export:
+#       Name: SecurityGroupServices
