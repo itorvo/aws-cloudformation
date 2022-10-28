@@ -183,6 +183,20 @@ Resources:
           PolicyName: kiire-policy-pinpoint-notification-access
       RoleName: !Sub ${Project}-${Environment}-pinpoint-role-emailchannel-notification-access
   
+  RoleKMSAdmin:
+    Type: AWS::IAM::Role
+    Properties: 
+      RoleName: !Sub ${Project}-${Environment}-kms-key-admin
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref 'AWS::AccountId'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser'
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -234,3 +248,13 @@ Outputs:
     Value: !GetAtt RoleEmailChannelPinpoint.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleEmailChannelPinpointArn
+  RoleKMSAdmin:
+    Description: KMS Admin Role Name
+    Value: !Ref RoleKMSAdmin
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleKMSAdmin
+  RoleKMSAdminArn:
+    Description: KMS Admin Role Arn
+    Value: !GetAtt RoleKMSAdmin.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleKMSAdminArn
