@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lambda para desplegar recursos en AWS
+Parameters:
+  KeyFileLambdaDeployment:
+    Type: String
+    Description: Nombre del archivo con el deployment de la lambda para generar versión
+  Project:
+    Type: String
+    Description: Nombre del archivo con el deployment de la lambda para generar versión
+    Default: kiire
+  Environment:
+    Type: String
+    Description: Nombre del ambiente
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+Resources:
+  DeploymentLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Role:
+        Fn::ImportValue:
+          !Sub "${Project}-${Environment}-RoleCustomResourceLambdaArn"
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Description: Lambda para crear recursos de AWS
+      FunctionName:
+        !Sub ${Project}-${Environment}-lambda-deployment-custom-resources
+      Code:
+        S3Bucket: test-my-bucket-aws
+        S3Key:
+          Ref: KeyFileLambdaDeployment
+Outputs:
+  CreateCustomResourceLambdaArn:
+    Description: Arn de la CreateCustomResourceLambdaArn para crear recursos
+    Value:
+      Fn::GetAtt:
+        - DeploymentLambda
+        - Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-CreateCustomResourceLambdaArn

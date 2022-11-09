@@ -106,6 +106,9 @@ Resources:
     Condition: CEnableLoadBalancer
     Properties:
       Name: !Sub ${Project}-${Environment}-${TypeLoadBalancer}
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
       Scheme: !If [ isPublic, internet-facing, internal ]
       Subnets:
         - Fn::ImportValue:

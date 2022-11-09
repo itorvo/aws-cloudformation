@@ -197,6 +197,38 @@ Resources:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser'
+  
+  RoleCustomResourceLambda:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-kms-key-admin
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      # ManagedPolicyArns:
+      #   - Fn::If:
+      #       - GenerarLogs
+      #       - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      #       - Ref: AWS::NoValue
+      Policies:
+        - PolicyName:
+            !Sub: ${Project}${Environment}-lambda-deployment-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:PublishVersion
+                Resource:
+                  - '*'
+  
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -258,3 +290,13 @@ Outputs:
     Value: !GetAtt RoleKMSAdmin.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleKMSAdminArn
+  RoleCustomResourceLambda:
+    Description: Custom Resource Lambda Role Name
+    Value: !Ref RoleCustomResourceLambda
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleCustomResourceLambda
+  RoleCustomResourceLambdaArn:
+    Description: Custom Resource Lambda Role Arn
+    Value: !GetAtt RoleCustomResourceLambda.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleCustomResourceLambdaArn
