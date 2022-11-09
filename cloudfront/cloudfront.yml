@@ -1,0 +1,325 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Portal Retiros | Pragma
+Parameters:
+  CustomDomainFront:
+    Description: Custom Domain Distribution
+    Type: String
+    Default: NO
+  CertificateKey:
+    Description: Key del Certificado SSL
+    Type: String
+    Default: NO
+  ProtocolVersion:
+    Description: Version del Protocolo SSL
+    Type: String
+    Default: TLSv1.2_2021
+  Environment:
+    Description: Nombre del ambiente
+    Type: String
+    AllowedValues:
+      - dev
+      - qc
+      - uat
+      - prod
+    Default: dev
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: shadow
+  DomainBack:
+    Description: Custom Domain API Backend
+    Type: String
+    Default: NO
+Conditions:
+  SinCustomDomainFront:
+    Fn::Equals:
+      - Ref: CustomDomainFront
+      - NO
+  IsProduction:
+    Fn::Equals:
+      - prod
+      - Ref: Environment
+Resources:
+  PolicyResponseHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties: 
+      ResponseHeadersPolicyConfig:
+        Name: !Sub PolicyHeadersSeguridad${Project}${Environment}
+        Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
+        CorsConfig: 
+          AccessControlAllowCredentials: true
+          AccessControlAllowHeaders: 
+            Items:
+              - 'x-permitted-cross-domain-policies'
+              - 'Cache-Control'
+              - 'Pragma'
+              - 'Server'
+          AccessControlAllowMethods: 
+            Items: 
+              - GET
+              - HEAD
+          AccessControlAllowOrigins:
+            Items:
+              - Ref: CustomDomainFront
+          AccessControlMaxAgeSec: 600
+          OriginOverride: true
+        CustomHeadersConfig:
+          Items:
+            - Header: x-permitted-cross-domain-policies
+              Override: true
+              Value: none
+            - Header: Cache-Control
+              Override: true
+              Value: no-store
+            - Header: Pragma
+              Override: true
+              Value: no-cache
+            - Header: Server
+              Override: true
+              Value: '-'
+            - Header: Permissions-Policy
+              Override: true
+              Value: '-'
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: same-origin
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+            Preload: true
+          XSSProtection:
+            ModeBlock: true
+            Override: true
+            Protection: true
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - Fn::If:
+              - SinCustomDomainFront
+              - Ref: AWS::NoValue
+              - Ref: CustomDomainFront
+        CacheBehaviors:
+          - AllowedMethods:
+              - HEAD
+              - GET
+            CachedMethods:
+              - HEAD
+              - GET
+            Compress: false
+            DefaultTTL: 86400
+            ForwardedValues:
+              QueryString: false
+            MaxTTL: 31536000
+            MinTTL: 0
+            PathPattern: /cdn*
+            ResponseHeadersPolicyId:
+              Ref: PolicyResponseHeaders
+            SmoothStreaming: false
+            TargetOriginId:
+              Ref: BucketFrontAssets
+            ViewerProtocolPolicy: redirect-to-https
+        Comment: Portal Retiros | Pragma
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponsePagePath: /index.html
+            ResponseCode: 200
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 404
+            ResponsePagePath: /index.html
+            ResponseCode: 404
+            ErrorCachingMinTTL: 300
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - HEAD
+            - GET
+          CachedMethods:
+            - HEAD
+            - GET
+          Compress: true
+          DefaultTTL: 86400
+          ForwardedValues:
+            QueryString: false
+          MaxTTL: 31536000
+          MinTTL: 0
+          ResponseHeadersPolicyId:
+            Ref: PolicyResponseHeaders
+          SmoothStreaming: false
+          TargetOriginId:
+            Ref: BucketFrontDefault
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled:
+          Fn::If:
+            - IsProduction
+            - true
+            - false
+        Origins:
+          - ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+            DomainName:
+              !GetAtt BucketFrontDefault.DomainName
+            Id:
+              Ref: BucketFrontDefault
+            OriginPath: ''
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAIBucketFrontDefault}
+          - ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+            DomainName:
+              !GetAtt BucketFrontAssets.DomainName
+            Id:
+              Ref: BucketFrontAssets
+            OriginPath: ''
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAIBucketFrontAssets}
+        PriceClass:
+          Fn::If:
+            - IsProduction
+            - PriceClass_All
+            - PriceClass_100
+        Restrictions:
+          Fn::If:
+            - IsProduction
+            - Ref: AWS::NoValue
+            - GeoRestriction:
+                Locations:
+                  - CO
+                  - US
+                  - PA
+                  - GT
+                  - PE
+                RestrictionType: whitelist
+        ViewerCertificate:
+          Fn::If:
+            - SinCustomDomainFront
+            - CloudFrontDefaultCertificate: true
+            - AcmCertificateArn:
+                !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
+              MinimumProtocolVersion:
+                Ref: ProtocolVersion
+              SslSupportMethod: sni-only
+  OAIBucketFrontDefault:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub access-origin-identity.${BucketFrontDefault}
+  BucketFrontDefault:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Project}.${Environment}.portal
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - ServerSideEncryptionByDefault:
+      #         SSEAlgorithm: AES256
+  BucketFrontDefaultPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: BucketFrontDefault
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontDefault}
+            Action:
+              - s3:GetObject
+            Resource:
+              Fn::Join:
+                - ''
+                - - !GetAtt BucketFrontDefault.Arn
+                  - /*
+  OAIBucketFrontOnboarding:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub access-origin-identity.${BucketFrontOnboarding}
+  BucketFrontOnboarding:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Project}.${Environment}.portal.onboarding
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - ServerSideEncryptionByDefault:
+      #         SSEAlgorithm: AES256
+  BucketFrontOnboardingPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: BucketFrontOnboarding
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontOnboarding}
+            Action:
+              - s3:GetObject
+            Resource:
+              Fn::Join:
+                - ''
+                - - !GetAtt BucketFrontOnboarding.Arn
+                  - /*
+  OAIBucketFrontAssets:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub access-origin-identity.${BucketFrontAssets}
+  BucketFrontAssets:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Project}.${Environment}.portal.assets
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  BucketFrontAssetsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: BucketFrontAssets
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontAssets}
+            Action:
+              - s3:GetObject
+            Resource:
+              Fn::Join:
+                - ''
+                - - !GetAtt BucketFrontAssets.Arn
+                  - /*
+Outputs:
+  PortalGenericDomain:
+    Description: Domain Generic of of CloudFront Portal
+    Value:
+      !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name:
+        !Sub ${Project}-${Environment}-PortalGenericDomain
+  PortalCustomDomainFront:
+    Description: Custom Domain of CloudFront Portal Personas
+    Value:
+      Ref: CustomDomainFront
+    Export:
+      Name: !Sub ${Project}-${Environment}-PortalGenericDomain
