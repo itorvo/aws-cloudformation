@@ -60,7 +60,7 @@ Parameters:
       - DISABLED
   
 Conditions:
-  CDiscoveryService: !Equals ["true", !Ref EnableDiscoveryService ]
+  CDiscoveryService: !Equals [ "true", !Ref EnableDiscoveryService ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository

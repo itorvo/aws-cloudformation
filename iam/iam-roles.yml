@@ -201,7 +201,7 @@ Resources:
   RoleCustomResourceLambda:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${Project}-${Environment}-kms-key-admin
+      RoleName: !Sub ${Project}-${Environment}-custom-resource
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -212,20 +212,23 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
-      # ManagedPolicyArns:
-      #   - Fn::If:
-      #       - GenerarLogs
-      #       - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-      #       - Ref: AWS::NoValue
       Policies:
-        - PolicyName:
-            !Sub: ${Project}${Environment}-lambda-deployment-policy
+        - PolicyName: !Sub: ${Project}${Environment}-lambda-deployment-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
                   - lambda:PublishVersion
+                Resource:
+                  - '*'
+        - PolicyName: !Sub ${Project}-${Environment}-policy-create-apigateway-deployment
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - apigateway:POST
                 Resource:
                   - '*'
   

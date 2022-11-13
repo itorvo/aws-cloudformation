@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create S3 Buckets assets, pinpoint and formatos
+Parameters:
+  # KMSS3KeyId:
+  #   Description: Id del Key de KMS para S3
+  #   Type: String
+  #   Default: AWS-S3-key
+  Project:
+    Type: String
+    Description: Nombre del proyecto
+    Default: copapragma
+  Environment:
+    Type: String
+    Description: Nombre ambiente
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+Resources:
+  BucketDeployments:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${Environment}-lambda-deployments
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - BucketKeyEnabled: true
+      #       ServerSideEncryptionByDefault:
+      #         KMSMasterKeyID:
+      #           Fn::Sub:
+      #             - arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSS3KeyId}
+      #             - KMSS3KeyId:
+      #                 Ref: KMSS3KeyId
+      #         SSEAlgorithm: aws:kms
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref Project
+        - Key: Descripcion
+          Value: Almacenar los artefactos generados al compilar las funciones lambdas
+  BucketArchetypes:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${Environment}-archetypes
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - BucketKeyEnabled: true
+      #       ServerSideEncryptionByDefault:
+      #         KMSMasterKeyID:
+      #           Fn::Sub:
+      #             - arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSS3KeyId}
+      #             - KMSS3KeyId:
+      #                 Ref: KMSS3KeyId
+      #         SSEAlgorithm: aws:kms
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref Project
+        - Key: Descripcion
+          Value: Almacenar los arquetipos del proyecto
+  BucketPipelinesArtifacts:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${Environment}-pipeline-artifacts
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - BucketKeyEnabled: true
+      #       ServerSideEncryptionByDefault:
+      #         KMSMasterKeyID:
+      #           Fn::Sub:
+      #             - arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSS3KeyId}
+      #             - KMSS3KeyId:
+      #                 Ref: KMSS3KeyId
+      #         SSEAlgorithm: aws:kms
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref Project
+        - Key: Descripcion
+          Value: Almacenar los artefactos generados en los pipelines
+Outputs:
+  BucketDeploymentsName:
+    Description: Nombre del bucket para guardar los deployments de proyectos
+    Value: !Ref BucketDeployments
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketDeploymentsName
+  BucketDeploymentsArn:
+    Description: Arn del bucket para guardar los deployments de proyectos
+    Value: !GetAtt BucketDeployments.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketDeploymentsNameArn
+  BucketArchetypesName:
+    Description: Nombre del bucket para guardar los arquetipos del proyecto
+    Value: !Ref BucketDeployments
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketArchetypesName
+  BucketArchetypesArn:
+    Description: Arn del bucket para guardar los arquetipos del proyecto
+    Value: !GetAtt BucketDeployments.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketArchetypesArn
+  BucketPipelinesArtifactsName:
+    Description: Nombre del bucket para guardar los artefactos generados en los pipelines
+    Value: !Ref BucketDeployments
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketPipelinesArtifactsName
+  BucketPipelinesArtifactsArn:
+    Description: Arn del bucket para guardar los artefactos generados en los pipelines
+    Value: !GetAtt BucketDeployments.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-BucketPipelinesArtifactsArn

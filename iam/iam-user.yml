@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Usuario de IAM como Admin de la cuenta'
+Parameters:
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: CopaPragma
+  Password:
+    NoEcho: 'true'
+    Type: String
+    Description: New account password
+    MinLength: '1'
+    MaxLength: '41'
+    ConstraintDescription: the password must be between 1 and 41 characters
+  EnableAccessKey:
+    Description: Activar credenciales de Usuario Programatico
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+Conditions:
+  ActivarCredenciales: !Equals [ true, !Ref EnableAccessKey ]
+Resources:
+  CFNUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub ${Project}.UserFullAccess
+      LoginProfile:
+        Password: !Ref 'Password'
+      Groups:
+        - !Ref CFNAdminGroup
+  CFNAdminGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub ${Project}-AdminFullAccess
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AdministratorAccess
+  CFNKeys:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref 'CFNUser'
+      Status: !If [ ActivarCredenciales, Active, Inactive ]
+Outputs:
+  AccessKey:
+    Value: !Ref 'CFNKeys'
+    Description: AWSAccessKeyId of new user
+  # SecretKey:
+  #   Value: !GetAtt [CFNKeys, SecretAccessKey]
+  #   Description: AWSSecretAccessKey of new user

@@ -4,6 +4,9 @@ Parameters:
   KeyFileLambdaDeployment:
     Type: String
     Description: Nombre del archivo con el deployment de la lambda para generar versión
+  S3LambdaDeployment:
+    Type: String
+    Description: Nombre del archivo con el deployment de la lambda para generar versión
   Project:
     Type: String
     Description: Nombre del archivo con el deployment de la lambda para generar versión
@@ -26,18 +29,13 @@ Resources:
       Handler: index.handler
       Runtime: nodejs16.x
       Description: Lambda para crear recursos de AWS
-      FunctionName:
-        !Sub ${Project}-${Environment}-lambda-deployment-custom-resources
+      FunctionName: !Sub ${Project}-${Environment}-lambda-deployment-custom-resources
       Code:
-        S3Bucket: test-my-bucket-aws
-        S3Key:
-          Ref: KeyFileLambdaDeployment
+        S3Bucket: !Ref S3LambdaDeployment
+        S3Key: !Ref KeyFileLambdaDeployment
 Outputs:
   CreateCustomResourceLambdaArn:
     Description: Arn de la CreateCustomResourceLambdaArn para crear recursos
-    Value:
-      Fn::GetAtt:
-        - DeploymentLambda
-        - Arn
+    Value: !GetAtt DeploymentLambda.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-CreateCustomResourceLambdaArn
