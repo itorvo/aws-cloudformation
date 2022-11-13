@@ -1,0 +1,19 @@
+vpc:
+  dev:
+    securityGroupIds:
+      - !ImportValue SecurityGroupServices
+    subnetIds:
+      - !ImportValue Infra-VPC-dev-SrvSub1
+      - !ImportValue Infra-VPC-dev-SrvSub2
+  qa:
+    securityGroupIds:
+      - !ImportValue SecurityGroupServices
+    subnetIds:
+      - !ImportValue Infra-VPC-qa-SrvSub1
+      - !ImportValue Infra-VPC-qa-SrvSub2
+  prod:
+    securityGroupIds:
+      - !ImportValue SecurityGroupServices
+    subnetIds:
+      - !ImportValue Infra-VPC-prod-SrvSub1
+      - !ImportValue Infra-VPC-prod-SrvSub2

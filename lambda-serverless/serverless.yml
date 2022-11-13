@@ -1,0 +1,104 @@
+service: audit-requests
+
+frameworkVersion: '3'
+
+custom:
+  packageLimit: '10mb' 
+  stage: ${opt:stage, 'dev'}
+  vpc: ${file(serverless-files/vpc.sls.yml):vpc.${self:custom.stage}}
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  stage: ${self.custom.stage}
+  deploymentBucket: 
+    maxPreviousDeploymentArtifacts: 5
+  vpc: ${self:custom.vpc} 
+
+  iam:
+    role:
+      name: role-lambda-audit-request
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:PutItem
+          Resource: !GetAtt TableAuditRequests.Arn
+        - Effect: Allow
+          Action:
+            - ec2:CreateNetworkInterface
+          Resource: '*'
+
+package:
+  patterns:
+    - '!*.json'
+    - '!pipeline/**'
+    - '!*.md'
+    - '!serverless-files/**'
+    - '!tests/**'
+    - '!node_modules/**'
+    - '!coverage/**'
+    - '!.nyc_output/**'
+
+functions:
+  LambdaAuditRequest:
+    handler: src/index.handler
+    name: audit-requests
+    description: Registrar auditoria de las peticiones
+    memorySize: 128
+    timeout: 15
+    maximumRetryAttempts: 1
+    events:
+    - sqs:
+        arn: !GetAtt AuditRequestQueue.Arn
+        batchSize: 1
+    environment:
+      tableName: !Ref TableAuditRequests
+
+resources:
+  Resources:
+    AuditRequestDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        QueueName: !Sub 'audit-requests-dlq.fifo'
+        VisibilityTimeout: 30
+        DelaySeconds: 15
+        MaximumMessageSize: 262144
+    AuditRequestQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        ContentBasedDeduplication: true
+        QueueName: 'audit-requests.fifo'
+        VisibilityTimeout: 30
+        DelaySeconds: 5
+        MaximumMessageSize: 262144
+        RedrivePolicy: 
+          deadLetterTargetArn: 
+            Fn::GetAtt: 
+              - "AuditRequestDLQ"
+              - "Arn"
+          maxReceiveCount: 3
+    TableAuditRequests:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        KeySchema:
+          - AttributeName: user
+            KeyType: HASH
+          - AttributeName: partitionDate
+            KeyType: RANGE
+        AttributeDefinitions:
+          - AttributeName: user
+            AttributeType: S
+          - AttributeName: partitionDate
+            AttributeType: S
+        BillingMode: PAY_PER_REQUEST
+        TableClass: STANDARD
+        TableName: AuditRequests
+        Tags:
+          - Key: Description
+            Value: Almacena la auditoría de las peticiones que son realizadas

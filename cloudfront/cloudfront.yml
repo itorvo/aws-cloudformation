@@ -1,50 +1,101 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Portal Retiros | Pragma
+Description: Portal Web
 Parameters:
   CustomDomainFront:
     Description: Custom Domain Distribution
     Type: String
-    Default: NO
+    Default: "NO"
+    AllowedPattern: (NO)|((^https:\/\/)(\w*\d*)((.pragma.com.co)))
   CertificateKey:
     Description: Key del Certificado SSL
     Type: String
-    Default: NO
+    Default: "NO"
+    AllowedPattern: (NO)|((\w|\d){8})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){12})
   ProtocolVersion:
     Description: Version del Protocolo SSL
     Type: String
     Default: TLSv1.2_2021
   Environment:
-    Description: Nombre del ambiente
+    Description: Ambiente en que está siendo desplegado el stack
     Type: String
     AllowedValues:
       - dev
-      - qc
-      - uat
-      - prod
+      - qa
+      - pdn
     Default: dev
   Project:
     Description: Nombre del Proyecto
     Type: String
-    Default: shadow
-  DomainBack:
-    Description: Custom Domain API Backend
+    Default: copapragma
+  CloudFrontStatus:
     Type: String
-    Default: NO
+    Default: true
+    AllowedValues:
+      - true
+      - false
+  DomainBack:
+    Type: String
+    Default: "NO" # api.retiros.pragma.com.co
+    AllowedPattern: (NO)|((^api)\.(\w*\d*)((.pragma.com.co)))
+  S3KeyFileLambda:
+    Type: String
+    Description: Key de S3 del archivo con el código fuente de la lambda
+    Default: lambda-deployment-custom-resources.zip
+  DeploymentTime:
+    Description: Parametro para establecer el la creación de recursos custom
+    Type: String
+    Default: 0
 Conditions:
-  SinCustomDomainFront:
-    Fn::Equals:
-      - Ref: CustomDomainFront
-      - NO
-  IsProduction:
-    Fn::Equals:
-      - prod
-      - Ref: Environment
+  SinCustomDomainFront: !Equals [ "NO", !Ref CustomDomainFront ]
+  SinCertificateKey: !Equals [ "NO", !Ref CertificateKey ]
+  SinAlias: !Or [ Condition: SinCustomDomainFront, Condition: SinCertificateKey ]
+  SinDomainBack: !Equals [ "NO", !Ref DomainBack ]
+  IsProduction: !Equals [ "pdn", !Ref Environment ]
+  CrearPoliticaHeaders: !Not [ !And [ Condition: SinAlias, Condition: SinDomainBack ] ]
 Resources:
+  RoleLambdaEdgeOriginRequest:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Rol por defecto para lambda-edge
+      MaxSessionDuration: 3600
+      RoleName: !Sub ${Project}-${Environment}-role-lambda-edge-origin-request
+  LambdaEdgeOriginRequest:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
+        S3Key: !Ref S3KeyFileLambda
+      Description: Lambda Edge de Origin Request
+      FunctionName: !Sub ${Project}-${Environment}-lambda-edge-origin-request
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt RoleLambdaEdgeOriginRequest.Arn
+      Runtime: nodejs16.x
+      Timeout: 5
+  LambdaEdgeOriginRequestVersion:
+    Type: Custom::LambdaVersion
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken:
+        Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
+      FunctionName: !Ref LambdaEdgeOriginRequest
+      DeploymentTime: !Ref DeploymentTime
   PolicyResponseHeaders:
     Type: AWS::CloudFront::ResponseHeadersPolicy
+    Condition: CrearPoliticaHeaders
     Properties: 
       ResponseHeadersPolicyConfig:
-        Name: !Sub PolicyHeadersSeguridad${Project}${Environment}
+        Name: !Sub ${Project}PolicyHeadersSeguridad${Project}${Environment}
         Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
         CorsConfig: 
           AccessControlAllowCredentials: true
@@ -60,7 +111,7 @@ Resources:
               - HEAD
           AccessControlAllowOrigins:
             Items:
-              - Ref: CustomDomainFront
+              - !Sub https://${CustomDomainFront}
           AccessControlMaxAgeSec: 600
           OriginOverride: true
         CustomHeadersConfig:
@@ -79,7 +130,7 @@ Resources:
               Value: '-'
             - Header: Permissions-Policy
               Override: true
-              Value: '-'
+              Value: !Sub 'fullscreen=(self "https://${CustomDomainFront}")'
         SecurityHeadersConfig:
           ContentSecurityPolicy:
             ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
@@ -105,11 +156,7 @@ Resources:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Aliases:
-          - Fn::If:
-              - SinCustomDomainFront
-              - Ref: AWS::NoValue
-              - Ref: CustomDomainFront
+        Aliases: !If [ SinAlias, !Ref AWS::NoValue, !Ref CustomDomainFront ]
         CacheBehaviors:
           - AllowedMethods:
               - HEAD
@@ -121,16 +168,18 @@ Resources:
             DefaultTTL: 86400
             ForwardedValues:
               QueryString: false
+            LambdaFunctionAssociations:
+              - EventType: origin-request
+                IncludeBody: false
+                LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
             MaxTTL: 31536000
             MinTTL: 0
             PathPattern: /cdn*
-            ResponseHeadersPolicyId:
-              Ref: PolicyResponseHeaders
+            ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
             SmoothStreaming: false
-            TargetOriginId:
-              Ref: BucketFrontAssets
+            TargetOriginId: !Ref BucketFrontAssets
             ViewerProtocolPolicy: redirect-to-https
-        Comment: Portal Retiros | Pragma
+        Comment: !Sub ${Project} Portal Web | ${Environment}
         CustomErrorResponses:
           - ErrorCode: 403
             ResponsePagePath: /index.html
@@ -151,50 +200,36 @@ Resources:
           DefaultTTL: 86400
           ForwardedValues:
             QueryString: false
+          LambdaFunctionAssociations:
+            - EventType: origin-request
+              IncludeBody: false
+              LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
           MaxTTL: 31536000
           MinTTL: 0
-          ResponseHeadersPolicyId:
-            Ref: PolicyResponseHeaders
+          ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
           SmoothStreaming: false
-          TargetOriginId:
-            Ref: BucketFrontDefault
+          TargetOriginId: !Ref BucketFrontDefault
           ViewerProtocolPolicy: redirect-to-https
         DefaultRootObject: index.html
-        Enabled: true
+        Enabled: !Ref CloudFrontStatus
         HttpVersion: http2
-        IPV6Enabled:
-          Fn::If:
-            - IsProduction
-            - true
-            - false
+        IPV6Enabled: !If [ IsProduction, true, false ]
         Origins:
           - ConnectionAttempts: 3
             ConnectionTimeout: 10
-            CustomOriginConfig:
-              OriginProtocolPolicy: http-only
-            DomainName:
-              !GetAtt BucketFrontDefault.DomainName
-            Id:
-              Ref: BucketFrontDefault
+            DomainName: !GetAtt BucketFrontDefault.DomainName
+            Id: !Ref BucketFrontDefault
             OriginPath: ''
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAIBucketFrontDefault}
           - ConnectionAttempts: 3
             ConnectionTimeout: 10
-            CustomOriginConfig:
-              OriginProtocolPolicy: http-only
-            DomainName:
-              !GetAtt BucketFrontAssets.DomainName
-            Id:
-              Ref: BucketFrontAssets
+            DomainName: !GetAtt BucketFrontAssets.DomainName
+            Id: !Ref BucketFrontAssets
             OriginPath: ''
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAIBucketFrontAssets}
-        PriceClass:
-          Fn::If:
-            - IsProduction
-            - PriceClass_All
-            - PriceClass_100
+        PriceClass: !If [ IsProduction, PriceClass_All, PriceClass_100 ]
         Restrictions:
           Fn::If:
             - IsProduction
@@ -209,26 +244,24 @@ Resources:
                 RestrictionType: whitelist
         ViewerCertificate:
           Fn::If:
-            - SinCustomDomainFront
+            - SinAlias
             - CloudFrontDefaultCertificate: true
-            - AcmCertificateArn:
-                !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
-              MinimumProtocolVersion:
-                Ref: ProtocolVersion
+            - AcmCertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
+              MinimumProtocolVersion: !Ref ProtocolVersion
               SslSupportMethod: sni-only
   OAIBucketFrontDefault:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
       CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub access-origin-identity.${BucketFrontDefault}
+        Comment: !Sub access-identity-${BucketFrontDefault}
   BucketFrontDefault:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Project}.${Environment}.portal
-      # BucketEncryption:
-      #   ServerSideEncryptionConfiguration:
-      #     - ServerSideEncryptionByDefault:
-      #         SSEAlgorithm: AES256
+      BucketName: !Sub ${Environment}.portal.withdrawal.portal
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
   BucketFrontDefaultPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -243,50 +276,19 @@ Resources:
             Action:
               - s3:GetObject
             Resource:
-              Fn::Join:
+            Fn::Join:
                 - ''
                 - - !GetAtt BucketFrontDefault.Arn
-                  - /*
-  OAIBucketFrontOnboarding:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub access-origin-identity.${BucketFrontOnboarding}
-  BucketFrontOnboarding:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub ${Project}.${Environment}.portal.onboarding
-      # BucketEncryption:
-      #   ServerSideEncryptionConfiguration:
-      #     - ServerSideEncryptionByDefault:
-      #         SSEAlgorithm: AES256
-  BucketFrontOnboardingPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket:
-        Ref: BucketFrontOnboarding
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontOnboarding}
-            Action:
-              - s3:GetObject
-            Resource:
-              Fn::Join:
-                - ''
-                - - !GetAtt BucketFrontOnboarding.Arn
                   - /*
   OAIBucketFrontAssets:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
       CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub access-origin-identity.${BucketFrontAssets}
+        Comment: !Sub access-identity-${BucketFrontAssets}
   BucketFrontAssets:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Project}.${Environment}.portal.assets
+      BucketName: !Sub ${Environment}.portal.withdrawal.assets
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -294,8 +296,7 @@ Resources:
   BucketFrontAssetsPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket:
-        Ref: BucketFrontAssets
+      Bucket: !Ref BucketFrontAssets
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -309,17 +310,3 @@ Resources:
                 - ''
                 - - !GetAtt BucketFrontAssets.Arn
                   - /*
-Outputs:
-  PortalGenericDomain:
-    Description: Domain Generic of of CloudFront Portal
-    Value:
-      !GetAtt CloudFrontDistribution.DomainName
-    Export:
-      Name:
-        !Sub ${Project}-${Environment}-PortalGenericDomain
-  PortalCustomDomainFront:
-    Description: Custom Domain of CloudFront Portal Personas
-    Value:
-      Ref: CustomDomainFront
-    Export:
-      Name: !Sub ${Project}-${Environment}-PortalGenericDomain

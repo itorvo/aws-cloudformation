@@ -1,0 +1,20 @@
+{
+  "name": "audit-requests",
+  "version": "1.0.0",
+  "description": "componente para registro de auditoria de las peticiones",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "standard --fix",
+    "test": "nyc --reporter=lcovonly --reporter=html --reporter=text mocha 'tests/**/*.test.js'"
+  },
+  "author": "Pragma S.A",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^10.0.0",
+    "nyc": "^15.1.0",
+    "sinon": "^14.0.0",
+    "aws-sdk": "^2.972.0"
+  }
+}
