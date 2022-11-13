@@ -146,7 +146,14 @@ Resources:
                   - "codebuild:*"
                   - "codecommit:*"
                   - "cloudformation:*"
+                  - "sns:*"
                 Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "sns:Publish"
+                Resource:
+                  Fn::ImportValue:
+                    !Sub ${Project}-TopicPipelineManualAproval
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -154,11 +161,14 @@ Resources:
         Type: S3
         Location:
           Fn::ImportValue: !Sub ${Project}-${AWS::AccountId}-BucketPipelinesArtifactsName
+      # DisableInboundStageTransitions:
+      #   - Reason: Requiere aprobación de autorizado
+      #     StageName: Build
       Name: !Sub ${Project}-${Repository}-${Branch}-Pipeline
       RestartExecutionOnUpdate: false
       RoleArn: !GetAtt CodePipelineRole.Arn
       Stages:
-        - Name: CodeCommit
+        - Name: SourceCode
           Actions:
             - Name: SourceCode
               ActionTypeId:
@@ -167,12 +177,26 @@ Resources:
                 Version: 1
                 Provider: CodeCommit
               OutputArtifacts:
-                - Name: "SourceCode"
+                - Name: SourceCode
               Configuration:
                 BranchName: !Ref Branch
                 RepositoryName:
                   Fn::ImportValue: !Sub ${Project}-${Repository}Name
               RunOrder: 1
+        - Name: AprobacionManual
+          Actions:
+          - ActionTypeId:
+              Category: Approval
+              Owner: AWS
+              Provider: Manual
+              Version: '1'
+            Configuration:
+              CustomData: Se requiere aprobación Manual
+              NotificationArn:
+                Fn::ImportValue:
+                  !Sub ${Project}-TopicPipelineManualAproval
+            Name: AprobacionManual
+            RunOrder: 1
         - Name: Build
           Actions:
             - Name: Build
@@ -182,9 +206,9 @@ Resources:
                   Version: 1
                   Provider: CodeBuild
               OutputArtifacts:
-                - Name: !Sub "${Project}-Build"
+                - Name: !Sub Build
               InputArtifacts:
-                - Name: "SourceCode"
+                - Name: SourceCode
               Configuration:
                   ProjectName: !Ref CodeBuildProject
               RunOrder: 1

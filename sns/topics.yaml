@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creación de Tópicos SNS
+Parameters:
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+  TopicPipelineManualAproval:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Aprobación Manual de Pipeline
+      Subscription: 
+        - Endpoint: raul.vergara@pragma.com.co
+          Protocol: email
+      TopicName: !Sub ${Project}-SNS-ManualApproval
+Outputs:
+  TopicForPipelineManualAprovalArn:
+    Description: Arn del Tópico para CodePipeline
+    Value: !Ref TopicPipelineManualAproval
+    Export:
+      Name:
+        !Sub ${Project}-TopicPipelineManualAproval
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
