@@ -2,7 +2,9 @@ version: 0.2
 
 env:
   variables:
-    BUCKET_NAME: "ito-437950194672-lambda-deployments"
+    BUCKET_NAME: ito-437950194672-lambda-deployments
+    PROJECT_NAME: basicCrud
+    CONTEXT: ''
 phases:
   install:
     runtime-versions:
@@ -14,11 +16,16 @@ phases:
     #   - echo Instalacion de Angular finalizada.
   build:
     commands:
+      - aws s3 cp index.html s3://$BUCKET_NAME/index.html
       # - echo Instalando dependencias...
       # - npm install
       # - echo Instalacion de Angular finalizada.
       # - echo Iniciando compilacion...
       # - ng build --prod
-      # - echo Compilacion terminada.
-      - aws s3 cp index.html s3://$BUCKET_NAME/index.html
-      - echo Archivos de front transferidos.
+      # - echo Compilacion terminada. dist\basicCrud
+      # - echo Transfiriendo archivos a S3
+      # - aws s3 sync dist/$PROJECT_NAME s3://$BUCKET_NAME/$CONTEXT
+      # - echo Archivos de front transferidos.
+      # - echo Generando invalidación de CloudFront
+      # - INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths /* --query 'Invalidation.Id' --output text)
+      # - aws cloudfront invalidaiton-completed --distributión-id $DISTRIBUTION_ID --id INVALIDATION_ID
