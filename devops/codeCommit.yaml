@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Crea los repositorios de CodeCommit
+Parameters:
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Conditions:
+  CrearTodos:
+    !Equals
+      - true
+      - false
+Resources:
+  FrontDummyRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      Code:
+        BranchName: main
+        S3:
+          Bucket:
+            Fn::ImportValue:
+              !Sub ${Project}-${AWS::AccountId}-BucketArchetypesName
+          Key: front.zip
+      RepositoryName: !Sub ${Project}-front-dummy
+      RepositoryDescription: Repositorio para proyecto micro-front dummy
+  BackDummyRepository:
+    Type: AWS::CodeCommit::Repository
+    Condition: CrearTodos
+    Properties:
+      RepositoryName: !Sub ${Project}-back-dummy
+      RepositoryDescription: Repositorio para proyecto backend dummy
+Outputs:
+  FrontDummyRepositoryName:
+    Description: Nombre del repositorio Front Dummy
+    Value: !GetAtt FrontDummyRepository.Name
+    Export:
+      Name:
+        !Sub ${Project}-FrontDummyRepositoryName
+  FrontDummyRepositoryArn:
+    Description: Arb del repositorio de Front Dummy
+    Value: !GetAtt FrontDummyRepository.Arn
+    Export:
+      Name:
+        !Sub ${Project}-FrontDummyRepositoryArn

@@ -7,21 +7,14 @@ Parameters:
   #   Default: AWS-S3-key
   Project:
     Type: String
-    Default: copapragma
+    Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
-  Environment:
-    Type: String
-    Default: dev
-    AllowedValues:
-      - dev
-      - qa
-      - pdn
 Resources:
   BucketDeployments:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: BucketOwnerFullControl
-      BucketName: !Sub ${Project}-${Environment}-lambda-deployments
+      BucketName: !Sub ${Project}-${AWS::AccountId}-lambda-deployments
       PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true
@@ -38,8 +31,6 @@ Resources:
       #                 Ref: KMSS3KeyId
       #         SSEAlgorithm: aws:kms
       Tags:
-        - Key: Environment
-          Value: !Ref Environment
         - Key: Project
           Value: !Ref Project
         - Key: Descripcion
@@ -48,7 +39,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: BucketOwnerFullControl
-      BucketName: !Sub ${Project}-${Environment}-archetypes
+      BucketName: !Sub ${Project}-${AWS::AccountId}-archetypes
       PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true
@@ -65,8 +56,6 @@ Resources:
       #                 Ref: KMSS3KeyId
       #         SSEAlgorithm: aws:kms
       Tags:
-        - Key: Environment
-          Value: !Ref Environment
         - Key: Project
           Value: !Ref Project
         - Key: Descripcion
@@ -75,7 +64,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: BucketOwnerFullControl
-      BucketName: !Sub ${Project}-${Environment}-pipeline-artifacts
+      BucketName: !Sub ${Project}-${AWS::AccountId}-pipeline-artifacts
       PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true
@@ -92,8 +81,6 @@ Resources:
       #                 Ref: KMSS3KeyId
       #         SSEAlgorithm: aws:kms
       Tags:
-        - Key: Environment
-          Value: !Ref Environment
         - Key: Project
           Value: !Ref Project
         - Key: Descripcion
@@ -103,32 +90,32 @@ Outputs:
     Description: Nombre del bucket para guardar los deployments de proyectos
     Value: !Ref BucketDeployments
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketDeploymentsName
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
   BucketDeploymentsArn:
     Description: Arn del bucket para guardar los deployments de proyectos
     Value: !GetAtt BucketDeployments.Arn
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketDeploymentsArn
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsArn
   BucketArchetypesName:
     Description: Nombre del bucket para guardar los arquetipos del proyecto
-    Value: !Ref BucketDeployments
+    Value: !Ref BucketArchetypes
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketArchetypesName
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketArchetypesName
   BucketArchetypesArn:
     Description: Arn del bucket para guardar los arquetipos del proyecto
-    Value: !GetAtt BucketDeployments.Arn
+    Value: !GetAtt BucketArchetypes.Arn
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketArchetypesArn
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketArchetypesArn
   BucketPipelinesArtifactsName:
     Description: Nombre del bucket para guardar los artefactos generados en los pipelines
-    Value: !Ref BucketDeployments
+    Value: !Ref BucketPipelinesArtifacts
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketPipelinesArtifactsName
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketPipelinesArtifactsName
   BucketPipelinesArtifactsArn:
     Description: Arn del bucket para guardar los artefactos generados en los pipelines
-    Value: !GetAtt BucketDeployments.Arn
+    Value: !GetAtt BucketPipelinesArtifacts.Arn
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketPipelinesArtifactsArn
+      Name: !Sub ${Project}-${AWS::AccountId}-BucketPipelinesArtifactsArn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
@@ -136,9 +123,9 @@ Metadata:
           default: Datos del Proyecto
         Parameters: 
           - Project
-          - Environment
+          - AWS::AccountId
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
-      Environment: 
+      AWS::AccountId: 
         default: Nombre del ambiente

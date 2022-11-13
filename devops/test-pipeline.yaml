@@ -1,0 +1,292 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup AWS workstream-specific resources for CI/CD
+Parameters:
+  ProjectName:
+    Description: The Name of the Project, This will propergate into CodeBuild, CodePipeline and CodeCommit
+    Type: String
+  Image:
+    Description: The Image you wish to use for CodeBuild.
+    Type: String
+    AllowedValues:
+      - aws/codebuild/ubuntu-base:14.04
+      - aws/codebuild/android-java-8:26.1.1
+      - aws/codebuild/android-java-8:24.4.1
+      - aws/codebuild/docker:17.09.0
+      - aws/codebuild/golang:1.10
+      - aws/codebuild/java:openjdk-8
+      - aws/codebuild/java:openjdk-9
+      - aws/codebuild/nodejs:10.1.0
+      - aws/codebuild/nodejs:8.11.0
+      - aws/codebuild/nodejs:6.3.1
+      - aws/codebuild/php:5.6
+      - aws/codebuild/php:7.0
+      - aws/codebuild/python:3.6.5
+      - aws/codebuild/python:3.5.2
+      - aws/codebuild/python:3.4.5
+      - aws/codebuild/python:3.3.6
+      - aws/codebuild/python:2.7.12
+      - aws/codebuild/ruby:2.5.1
+      - aws/codebuild/ruby:2.3.1
+      - aws/codebuild/ruby:2.2.5
+      - aws/codebuild/dot-net:core-1
+      - aws/codebuild/dot-net:core-2.0
+      - aws/codebuild/windows-base:1.0
+      - aws/codebuild/standard:4.0
+      - aws/codebuild/standard:5.0
+      - aws/codebuild/standard:6.0
+  ComputeType:
+    Description: The Compute Type to use for AWS CodeBuild
+    Type: String
+    AllowedValues:
+      - "BUILD_GENERAL1_SMALL"  #3 GB memory, 2 vCPU
+      - "BUILD_GENERAL1_MEDIUM" #7 GB memory, 4 vCPU
+      - "BUILD_GENERAL1_LARGE"  #15 GB memory, 8 vCPU
+Resources:
+  CodeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      # Code:
+      #   BranchName: main
+      #   S3: 
+      #       Bucket: test-my-bucket-aws
+      #       Key: audit.zip
+      RepositoryName: !Ref ProjectName
+      RepositoryDescription: !Sub "CodeCommit Repo for ${ProjectName}"
+
+  PipelineBucket:
+    Type: AWS::S3::Bucket
+
+  AmazonCloudWatchEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ 'role-event-cloudwatch', !Ref 'ProjectName'] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        -
+          PolicyName: cwe-pipeline-execution
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref CodePipeline ] ]
+  AmazonCloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !GetAtt CodeCommitRepository.Arn
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - main
+      Targets:
+        -
+          Arn: 
+            !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref CodePipeline ] ]
+          RoleArn: !GetAtt AmazonCloudWatchEventRole.Arn
+          Id: codepipeline-AppPipeline
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ 'role-codebuild-project', !Ref 'ProjectName'] ]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
+      Policies:
+        - PolicyName: "AWS-CodeBuild-Service-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:Put*"
+                  - "s3:Get*"
+                  - "logs:*"
+                  - "cloudformation:ValidateTemplate"
+                  - "codecommit:*"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                Resource: '*'
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: !Ref ComputeType
+        Image: !Ref Image
+        Type: LINUX_CONTAINER
+      Name: !Sub "${ProjectName}"
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        BuildSpec: pipeline/buildspec.yml
+        Type: CODEPIPELINE
+  
+  CodePipelineRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Join [ '-', [ 'role-codepipeline', !Ref 'ProjectName'] ]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codepipeline.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: "AWS-CodePipeline-Service-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "codedeploy:*"
+                  - "s3:*"
+                  - "iam:PassRole"
+                  - "codebuild:*"
+                  - "codecommit:*"
+                  - "cloudformation:*"
+                Resource: "*"
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineBucket
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Name: !Ref ProjectName
+      Stages:
+        - Name: CodeCommit
+          Actions:
+            - Name: SourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: "SourceCode"
+              Configuration:
+                BranchName: "main"
+                RepositoryName: !GetAtt CodeCommitRepository.Name
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+              OutputArtifacts:
+                - Name: !Sub "${ProjectName}-${Environment}-Build"
+              InputArtifacts:
+                - Name: "SourceCode"
+              Configuration:
+                  ProjectName: !Ref CodeBuildProject
+              RunOrder: 1
+        # - Name: Deploy
+        #   Actions:
+        #   - ActionTypeId:
+        #       Category: Deploy
+        #       Owner: AWS
+        #       Provider: ECS
+        #       Version: '1'
+        #     Configuration:
+        #       ClusterName: !Ref 'EcsClusterName'
+        #       FileName: imagedefinitions.json
+        #       ServiceName: !Ref 'EcsServiceName'
+        #     InputArtifacts:
+        #       - Name: !Sub "${ProjectName}-${Environment}-Build"
+        #     Name: Deploy
+        #     OutputArtifacts: []
+        #     Region: us-east-1
+        #     RunOrder: 1
+        # - Name: Deploy-Testing
+        #   Actions:
+        #     - Name: ReplaceChangeSet
+        #       InputArtifacts:
+        #         - Name: "TemplateSource"
+        #       ActionTypeId:
+        #         Category: Deploy
+        #         Owner: AWS
+        #         Version: 1
+        #         Provider: CloudFormation
+        #       Configuration:
+        #         ActionMode: CHANGE_SET_REPLACE
+        #         StackName: !Sub "testing-${ProjectName}"
+        #         ChangeSetName: !Sub "testing-${ProjectName}"
+        #         TemplatePath: "TemplateSource::template.yaml"
+        #         Capabilities: CAPABILITY_NAMED_IAM
+        #         RoleArn: !ImportValue CloudFormationRoleArn
+        #       RunOrder: 1
+        #     - Name: ExecuteChangeSet
+        #       ActionTypeId:
+        #         Category: Deploy
+        #         Owner: AWS
+        #         Version: 1
+        #         Provider: CloudFormation
+        #       Configuration:
+        #         ActionMode: CHANGE_SET_EXECUTE
+        #         StackName: !Sub "testing-${ProjectName}"
+        #         ChangeSetName: !Sub "testing-${ProjectName}"
+        #       RunOrder: 2
+        # - Name: Deploy-Production
+        #   Actions:
+        #     - Name: ReplaceChangeSet
+        #       InputArtifacts:
+        #         - Name: "TemplateSource"
+        #       ActionTypeId:
+        #         Category: Deploy
+        #         Owner: AWS
+        #         Version: 1
+        #         Provider: CloudFormation
+        #       Configuration:
+        #         ActionMode: CHANGE_SET_REPLACE
+        #         StackName: !Sub "production-${ProjectName}"
+        #         ChangeSetName: !Sub "production-${ProjectName}"
+        #         TemplatePath: "TemplateSource::template.yaml"
+        #         Capabilities: CAPABILITY_NAMED_IAM
+        #         RoleArn: !ImportValue CloudFormationRoleArn
+        #       RunOrder: 1
+        #     - Name: ExecuteChangeSet
+        #       ActionTypeId:
+        #         Category: Deploy
+        #         Owner: AWS
+        #         Version: 1
+        #         Provider: CloudFormation
+        #       Configuration:
+        #         ActionMode: CHANGE_SET_EXECUTE
+        #         StackName: !Sub "production-${ProjectName}"
+        #         ChangeSetName: !Sub "production-${ProjectName}"
+        #       RunOrder: 2

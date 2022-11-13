@@ -1,0 +1,221 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup AWS workstream-specific resources for CI/CD
+Parameters:
+  Project:
+    Description: The Name of the Project, This will propergate into CodeBuild, CodePipeline
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+  Image:
+    Description: The Image you wish to use for CodeBuild.
+    Type: String
+    AllowedValues:
+      - aws/codebuild/standard:4.0
+      - aws/codebuild/standard:5.0
+      - aws/codebuild/standard:6.0
+  ComputeType:
+    Description: The Compute Type to use for AWS CodeBuild
+    Type: String
+    AllowedValues:
+      - "BUILD_GENERAL1_SMALL"  #3 GB memory, 2 vCPU
+      - "BUILD_GENERAL1_MEDIUM" #7 GB memory, 4 vCPU
+      - "BUILD_GENERAL1_LARGE"  #15 GB memory, 8 vCPU
+  Repository:
+    Type: String
+    Default: FrontDummyRepository
+    AllowedValues:
+      - FrontDummyRepository
+  Branch:
+    Type: String
+    Default: develop
+    AllowedValues:
+      - develop
+      - qa
+      - main
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+Resources:
+  AmazonCloudWatchEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-Role-EventBridge-${Repository}-${Branch}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        -
+          PolicyName: cwe-pipeline-execution
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}
+  AmazonCloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - Fn::ImportValue: !Sub ${Project}-${Repository}Arn
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref Branch
+      Name: !Sub ${Project}-EventRule-${Repository}-${Branch}
+      Targets:
+        - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}
+          RoleArn: !GetAtt AmazonCloudWatchEventRole.Arn
+          Id: !Sub Target-${CodePipeline}
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-Role-CodeBuild-${Repository}-${Branch}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/CloudFrontFullAccess
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: !Ref ComputeType
+        Image: !Ref Image
+        Type: LINUX_CONTAINER
+      Name: !Sub ${Project}-CodeBuild-${Repository}-${Branch}
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        BuildSpec: buildspect.yml
+        Type: CODEPIPELINE
+  CodePipelineRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-Role-Pipeline-${Repository}-${Branch}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codepipeline.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub ${Project}-${Environment}-Policy-Service-CodePipeline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "codedeploy:*"
+                  - "s3:*"
+                  - "iam:PassRole"
+                  - "codebuild:*"
+                  - "codecommit:*"
+                  - "cloudformation:*"
+                Resource: "*"
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location:
+          Fn::ImportValue: !Sub ${Project}-${AWS::AccountId}-BucketPipelinesArtifactsName
+      Name: !Sub ${Project}-${Repository}-${Branch}-Pipeline
+      RestartExecutionOnUpdate: false
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+        - Name: CodeCommit
+          Actions:
+            - Name: SourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: "SourceCode"
+              Configuration:
+                BranchName: !Ref Branch
+                RepositoryName:
+                  Fn::ImportValue: !Sub ${Project}-${Repository}Name
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+              OutputArtifacts:
+                - Name: !Sub "${Project}-Build"
+              InputArtifacts:
+                - Name: "SourceCode"
+              Configuration:
+                  ProjectName: !Ref CodeBuildProject
+              RunOrder: 1
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Datos del Repositorio
+        Parameters: 
+          - Repository
+          - Branch
+      - Label: 
+          default: Datos de CodeBuild
+        Parameters: 
+          - Image
+          - ComputeType
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del ambiente
+      Image: 
+        default: Tipo de Imagen
+      ComputeType: 
+        default: Tipo de Computo
+      Repository: 
+        default: Nombre del Repositorio de CodeCommit
+      Branch: 
+        default: Nombre de la rama

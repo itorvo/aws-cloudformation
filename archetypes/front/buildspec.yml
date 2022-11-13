@@ -1,0 +1,24 @@
+version: 0.2
+
+env:
+  variables:
+    BUCKET_NAME: "ito-437950194672-lambda-deployments"
+phases:
+  install:
+    runtime-versions:
+      nodejs: 16
+
+    # commands:
+    #   - echo Instalando Angular...
+    #   - npm install -g @angular/cli@11.2.10
+    #   - echo Instalacion de Angular finalizada.
+  build:
+    commands:
+      # - echo Instalando dependencias...
+      # - npm install
+      # - echo Instalacion de Angular finalizada.
+      # - echo Iniciando compilacion...
+      # - ng build --prod
+      # - echo Compilacion terminada.
+      - aws s3 cp index.html s3://$BUCKET_NAME/index.html
+      - echo Archivos de front transferidos.
