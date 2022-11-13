@@ -7,11 +7,10 @@ Parameters:
   #   Default: AWS-S3-key
   Project:
     Type: String
-    Description: Nombre del proyecto
     Default: copapragma
+    AllowedPattern: ^([a-z]|[0-9])*$
   Environment:
     Type: String
-    Description: Nombre ambiente
     Default: dev
     AllowedValues:
       - dev
@@ -109,7 +108,7 @@ Outputs:
     Description: Arn del bucket para guardar los deployments de proyectos
     Value: !GetAtt BucketDeployments.Arn
     Export:
-      Name: !Sub ${Project}-${Environment}-BucketDeploymentsNameArn
+      Name: !Sub ${Project}-${Environment}-BucketDeploymentsArn
   BucketArchetypesName:
     Description: Nombre del bucket para guardar los arquetipos del proyecto
     Value: !Ref BucketDeployments
@@ -130,3 +129,16 @@ Outputs:
     Value: !GetAtt BucketDeployments.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-BucketPipelinesArtifactsArn
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del ambiente

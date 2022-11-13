@@ -309,6 +309,7 @@ Resources:
       Domain: vpc
   Nat1RT:
     Type: 'AWS::EC2::RouteTable'
+    Condition: EnableNAT
     Properties:
       VpcId: !Ref VPC
       Tags:
