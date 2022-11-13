@@ -11,73 +11,75 @@ Parameters:
       - qa
       - prod
   Project:
-    Description: Nombre del Proyecto.
     Type: String
-    Default: kiire
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
 
 Resources:
   PolicyExecution:
-    Type: AWS::IAM::Policy
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      PolicyName: !Sub ${Project}-${Environment}-policy-execution-aplication
+      Description: Politica con permisos de ejecución de la aplicación
+      ManagedPolicyName: !Sub ${Project}-${Environment}-policy-execution-aplication
       PolicyDocument:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
             Action:
-              - dynamodb:BatchWriteItem
-              - dynamodb:PutItem
-              - dynamodb:DeleteItem
-              - dynamodb:UpdateItem
-              - sqs:DeleteMessage
-              - cognito-idp:ForgotPassword
-              - secretsmanager:DescribeSecret
-              - cognito-idp:ConfirmSignUp
-              - sqs:ReceiveMessage
-              - cognito-idp:GetIdentityProviderByIdentifier
-              - ecs:DescribeTaskDefinition
-              - dynamodb:DescribeTable
-              - dynamodb:GetItem
-              - execute-api:ManageConnections
-              - ecs:ListTaskDefinitions
-              - dynamodb:BatchGetItem
-              - sqs:GetQueueUrl
-              - lambda:InvokeFunction
-              - cognito-idp:VerifyUserAttribute
-              - sqs:SendMessage
-              - dynamodb:Scan
-              - sqs:GetQueueAttributes
-              - cognito-idp:ListUserPools
-              - cognito-idp:AdminUpdateUserAttributes
-              - secretsmanager:ListSecrets
-              - cognito-idp:ListUsers
-              - cognito-idp:AddCustomAttributes
               - batch:SubmitJob
-              - dynamodb:ListTables
-              - lambda:InvokeAsync
-              - ecs:ListServices
-              - sns:Publish
-              - secretsmanager:GetSecretValue
-              - cognito-idp:InitiateAuth
-              - ecs:ListClusters
+              - cognito-idp:AddCustomAttributes
               - cognito-idp:AdminInitiateAuth
-              - cognito-idp:ConfirmForgotPassword
-              - cognito-idp:GetUser
-              - dynamodb:ConditionCheckItem
-              - s3:*
-              - dynamodb:Query
-              - execute-api:Invoke
+              - cognito-idp:AdminUpdateUserAttributes
               - cognito-idp:ChangePassword
               - cognito-idp:ConfirmDevice
+              - cognito-idp:ConfirmSignUp
+              - cognito-idp:ConfirmForgotPassword
+              - cognito-idp:ForgotPassword
+              - cognito-idp:GetIdentityProviderByIdentifier
+              - cognito-idp:GetUser
+              - cognito-idp:InitiateAuth
+              - cognito-idp:ListUsers
+              - cognito-idp:ListUserPools
+              - cognito-idp:VerifyUserAttribute
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:ListTables
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+              - ecs:DescribeTaskDefinition
+              - ecs:ListClusters
+              - ecs:ListServices
+              - ecs:ListTaskDefinitions
+              - execute-api:Invoke
+              - execute-api:ManageConnections
+              - lambda:InvokeAsync
+              - lambda:InvokeFunction
+              - secretsmanager:DescribeSecret
+              - secretsmanager:GetSecretValue
+              - secretsmanager:ListSecrets
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:ReceiveMessage
+              - sqs:SendMessage
+              - sns:Publish
+              - s3:*
             Resource: '*'
       Roles:
         - !Ref ECSTaskExecutionRole
-        - !Ref ECSTaskRole
+        - !Ref RoleLambdaExecution
   
   PolicyNoLogs:
-    Type: AWS::IAM::Policy
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      PolicyName: !Sub ${Project}-${Environment}-policy-deny-logs
+      Description: Politica bloqueando la generación de logs
+      ManagedPolicyName: !Sub ${Project}-${Environment}-policy-deny-logs
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -90,7 +92,11 @@ Resources:
       Roles:
         - !Ref ECSTaskExecutionRole
         - !Ref ECSTaskRole
+        - !Ref RoleLambdaExecution
         - !Ref RoleLambdaEdgeExecution
+        - !Ref RoleEmailChannelPinpoint
+        - !Ref RoleKMSAdmin
+        - !Ref RoleCustomResourceLambda
   
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -106,8 +112,6 @@ Resources:
               - sts:AssumeRole
       RoleName: !Sub ${Project}-${Environment}-ecs-task-execution-role
       Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
   
   ECSTaskRole:
     Type: AWS::IAM::Role
@@ -213,7 +217,7 @@ Resources:
               - sts:AssumeRole
       Path: /
       Policies:
-        - PolicyName: !Sub: ${Project}${Environment}-lambda-deployment-policy
+        - PolicyName: !Sub ${Project}${Environment}-lambda-deployment-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -303,3 +307,16 @@ Outputs:
     Value: !GetAtt RoleCustomResourceLambda.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleCustomResourceLambdaArn
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del ambiente
