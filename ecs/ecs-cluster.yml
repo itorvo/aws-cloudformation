@@ -131,8 +131,10 @@ Resources:
 
 Outputs:
   ClusterName:
-    Description: Cluster
+    Description: Nombre del Cluster de ECS
     Value: !Ref Cluster
+    Export:
+      Name: !Sub ${Project}-${Environment}-ClusterName
   SecurityGroupServices:
     Description: "ID Security Group de Servicios de ECS"
     Value: !Ref FargateContainerSecurityGroup
