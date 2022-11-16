@@ -10,9 +10,9 @@ Parameters:
       - qa
       - pdn
   Project:
-    Description: Nombre del Proyecto.
     Type: String
     Default: kiire
+    AllowedPattern: ^([a-z]|[0-9])*$
   EnablePublicIp:
     Type: String
     Default: false
@@ -32,13 +32,13 @@ Parameters:
     AllowedValues:
       - true
       - false
-  EnableLoadBalancer:
+  RequireLoadBalancer:
     Type: String
     Default: false
     AllowedValues:
       - true
       - false
-  EnablePrivateDNS:
+  RequirePrivateDNS:
     Type: String
     Default: false
     AllowedValues:
@@ -46,11 +46,11 @@ Parameters:
       - false
 Conditions:  
   isPublic: !Equals [ true, !Ref EnablePublicIp ]
-  CEnablePrivateDNS: !Equals [ true, !Ref EnablePrivateDNS ]
-  CEnableLoadBalancer: !Equals [ true, !Ref EnableLoadBalancer ]
+  CreatePrivateDNS: !Equals [ true, !Ref RequirePrivateDNS ]
+  CreateLoadBalancer: !Equals [ true, !Ref RequireLoadBalancer ]
   CEnableVpcLink:
     !And
-      - !Condition CEnableLoadBalancer
+      - !Condition CreateLoadBalancer
       - !Condition isPublic
       - !Equals [ true, !Ref EnableVpcLink]
 
@@ -65,7 +65,7 @@ Resources:
   
   PrivateNamespace:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
-    Condition: CEnablePrivateDNS
+    Condition: CreatePrivateDNS
     Properties:
         Name: !Sub ${Project}.${Environment}
         Description: !Sub Private DNS for ${Project} in environment ${Environment}
@@ -73,37 +73,37 @@ Resources:
           Fn::ImportValue:
             !Sub "${Project}-${Environment}-VpcId"
   
-  FargateContainerSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupName: kiire-sgr-services-dev
-      GroupDescription: Access to the Fargate containers
-      Tags:
-        - Key: Name
-          Value: kiire-sgr-services-dev
-      VpcId:
-        Fn::ImportValue:
-          !Sub "${Project}-${Environment}-VpcId"
-  EcsSecurityGroupIngressFromVPC:
-    Type: 'AWS::EC2::SecurityGroupIngress'
-    Properties:
-      Description: Ingress from VPC services
-      GroupId: !Ref FargateContainerSecurityGroup
-      CidrIp: 172.22.0.0/16
-      FromPort: 9080
-      ToPort: 9086
-      IpProtocol: tcp
-  EcsSecurityGroupIngressFromSelf:
-    Type: 'AWS::EC2::SecurityGroupIngress'
-    Properties:
-      Description: Ingress from other containers in the same security group
-      GroupId: !Ref FargateContainerSecurityGroup
-      IpProtocol: -1
-      SourceSecurityGroupId: !Ref FargateContainerSecurityGroup
+  # FargateContainerSecurityGroup:
+  #   Type: 'AWS::EC2::SecurityGroup'
+  #   Properties:
+  #     GroupName: kiire-sgr-services-dev
+  #     GroupDescription: Access to the Fargate containers
+  #     Tags:
+  #       - Key: Name
+  #         Value: kiire-sgr-services-dev
+  #     VpcId:
+  #       Fn::ImportValue:
+  #         !Sub "${Project}-${Environment}-VpcId"
+  # EcsSecurityGroupIngressFromVPC:
+  #   Type: 'AWS::EC2::SecurityGroupIngress'
+  #   Properties:
+  #     Description: Ingress from VPC services
+  #     GroupId: !Ref FargateContainerSecurityGroup
+  #     CidrIp: 172.22.0.0/16
+  #     FromPort: 9080
+  #     ToPort: 9086
+  #     IpProtocol: tcp
+  # EcsSecurityGroupIngressFromSelf:
+  #   Type: 'AWS::EC2::SecurityGroupIngress'
+  #   Properties:
+  #     Description: Ingress from other containers in the same security group
+  #     GroupId: !Ref FargateContainerSecurityGroup
+  #     IpProtocol: -1
+  #     SourceSecurityGroupId: !Ref FargateContainerSecurityGroup
   
   NetworkLoadBalancer:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
-    Condition: CEnableLoadBalancer
+    Condition: CreateLoadBalancer
     Properties:
       Name: !Sub ${Project}-${Environment}-${TypeLoadBalancer}
       LoadBalancerAttributes:
@@ -135,8 +135,40 @@ Outputs:
     Value: !Ref Cluster
     Export:
       Name: !Sub ${Project}-${Environment}-ClusterName
-  SecurityGroupServices:
-    Description: "ID Security Group de Servicios de ECS"
-    Value: !Ref FargateContainerSecurityGroup
-    Export:
-      Name: SecurityGroupServices
+  # SecurityGroupServices:
+  #   Description: "ID Security Group de Servicios de ECS"
+  #   Value: !Ref FargateContainerSecurityGroup
+  #   Export:
+  #     Name: SecurityGroupServices
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Datos Balanceador de Carga
+        Parameters: 
+          - RequireLoadBalancer
+          - TypeLoadBalancer
+          - EnablePublicIp
+          - EnableVpcLink
+      - Label: 
+          default: Datos DNS Privado
+        Parameters: 
+          - RequirePrivateDNS
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del ambiente
+      RequireLoadBalancer: 
+        default: Requiere Balanceador de Carga
+      TypeLoadBalancer: 
+        default: Tipo de Balanceador
+      EnablePublicIp: 
+        default: Requiere IP Pública
+      EnableVpcLink: 
+        default: Requiere VPC Link

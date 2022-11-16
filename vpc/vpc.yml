@@ -9,7 +9,8 @@ Parameters:
     AllowedValues: [ dev, qa, prod ]
   Project:
     Type: String
-    Default: CopaPragma
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
   VPCCIDR:
     Type: String
     Default: 172.22.0.0/16
@@ -432,7 +433,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Condition: EnableVpcFlow
     Properties:
-      LogGroupName: /aws/vpclogs 
+      LogGroupName: /aws/vpclogs
       RetentionInDays: !Ref RetentionLogs 
       #KmsKeyId: !GetAtt KmsLoggroup.Arn
   
@@ -441,7 +442,7 @@ Resources:
    Condition: EnableVpcFlow
    Properties:
      DeliverLogsPermissionArn: !Sub arn:aws:iam::${AWS::AccountId}:role/VPCFlowLogs_Role
-     LogGroupName: /aws/vpclogs
+     LogGroupName: !Ref LogGroupVPCFlowLogs
      ResourceId: !Ref VPC
      ResourceType: VPC
      TrafficType: ALL

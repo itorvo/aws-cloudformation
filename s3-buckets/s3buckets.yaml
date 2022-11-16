@@ -123,9 +123,6 @@ Metadata:
           default: Datos del Proyecto
         Parameters: 
           - Project
-          - AWS::AccountId
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
-      AWS::AccountId: 
-        default: Nombre del ambiente
