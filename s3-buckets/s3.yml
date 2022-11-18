@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creación de S3 para almacenar información del proyecto
+Parameters:
+  Environment:
+    Description: Nombre del ambiente
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: itoorvo
+  BucketName01:
+      Description: Bucket name productostyc
+      Type: String
+      Default: productostyc
+  BucketName02:
+      Description: Bucket name documentos
+      Type: String
+      Default: documentos
+  BucketName03:
+      Description: Bucket name logging
+      Type: String
+      Default: logging
+  BucketName04:
+      Description: Bucket name Artifacts
+      Type: String
+      Default: artifacts
+  BucketName05:
+      Description: Bucket name Productos Portal
+      Type: String
+      Default: productos-portal
+  BucketName06:
+      Description: Bucket name Login
+      Type: String
+      Default: login-portal
+  BucketName07:
+      Description: Bucket name Checkout Portal
+      Type: String
+      Default: checkout-portal
+  BucketName08:
+      Description: Bucket name shopping cart
+      Type: String
+      Default: shopping-cart
+  BucketName09:
+      Description: Bucket name authentication
+      Type: String
+      Default: authentication
+  BucketName10:
+      Description: Bucket name onboarding
+      Type: String
+      Default: onboarding
+  BucketName11:
+      Description: Bucket name ecs parameters
+      Type: String
+      Default: ecs-env-files
+  LambdaEdgeRequestArn:
+      Description: ARN y version Lambda Edge Request
+      Type: String
+  LambdaEdgeResponseArn:
+      Description: ARN y version Lambda Edge Response
+      Type: String
+###---- RESOURCES ----###
+Resources:
+  S3Bucket11:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Project}-s3-${BucketName11}-${Environment}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # ReplicationConfiguration:
+        #   Role: !GetAtt roleReplication.Arn
+        #   Rules:
+        #     - Destination:
+        #         Bucket: !Ref S3Bucket02ArnDestino
+        #         AccessControlTranslation: ## Account is required for AccessControlTranslation
+        #           Owner: Destination
+        #         Account: !Ref AwsAccountIdDestination
+        #       Id: ${Project}-replication-rule-${Environment}
+        #       Prefix: ''
+        #       Status: Enabled 
+        # LifecycleConfiguration:
+        #     Rules:
+        #     - Id: kiire-Lifetime
+        #       Prefix: glacier
+        #       Status: Enabled
+        #       ExpirationInDays: 1825 #dias para que sean eliminados los archivos del bucket#
+        #       Transitions:
+        #         - TransitionInDays: 30 #dias para pasar lo files a Glacier#
+        #           StorageClass: STANDARD_IA  
+        #         - TransitionInDays: 180
+        #           StorageClass: GLACIER_IR
+        
+  S3KMSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      EnableKeyRotation: false
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt KMSAdmin.Arn
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow access through S3 for all principals in the account that are authorized to use S3
+            Effect: Allow
+            Principal: 
+              AWS: "*"
+            Action:
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey*
+            - kms:DescribeKey
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref 'AWS::AccountId'
+                kms:ViaService: !Sub s3.${AWS::Region}}.amazonaws.com
+  CloudtrailKMSKeyAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: !Sub "alias/S3KMSKey"
+      TargetKeyId: !GetAtt S3KMSKey.Arn
+  
+###---- BUCKETS S3 ----###    
+  S3Bucket02:
+    Type: AWS::S3::Bucket
+    Properties:
+        BucketName: !Sub ${Project}-s3-${BucketName02}-${Environment}
+        # CorsConfiguration:
+        #   CorsRules:
+        #     - AllowedHeaders:
+        #         - '*'
+        #       AllowedMethods:
+        #         - PUT
+        #       AllowedOrigins:
+        #         - '*'
+        # BucketEncryption:
+        #   ServerSideEncryptionConfiguration:
+        #     - ServerSideEncryptionByDefault:
+        #         SSEAlgorithm: 'aws:kms'
+        #         KMSMasterKeyID: !Ref S3KMSKey
+        # LoggingConfiguration:
+        #   DestinationBucketName: !Ref LoggingBucket
+        #   LogFilePrefix: cloudtrailaccess
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        # VersioningConfiguration:
+        #   Status: Enabled
+    
+  LoggingBucket:
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        AccessControl: LogDeliveryWrite
+        BucketName: !Sub ${Project}-s3-${BucketName03}-${Environment}
+        BucketEncryption:
+            ServerSideEncryptionConfiguration:
+              - ServerSideEncryptionByDefault:
+                  SSEAlgorithm: 'aws:kms'
+                  KMSMasterKeyID: !Ref S3KMSKey
+        # NotificationConfiguration:
+        #     TopicConfigurations:
+        #       - Topic: 'arn:aws:sns:us-east-1:xxxxx:sns_t_s3notifications'
+        #         Event: 's3:ObjectRemoved:*'
+        PublicAccessBlockConfiguration:
+            BlockPublicAcls: true
+            BlockPublicPolicy: true
+            IgnorePublicAcls: true
+            RestrictPublicBuckets: true
+        VersioningConfiguration:
+            Status: Enabled
+      
+  S3Bucket11:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Project}-s3-${BucketName11}-${Environment}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # ReplicationConfiguration:
+        #   Role: !GetAtt roleReplication.Arn
+        #   Rules:
+        #     - Destination:
+        #         Bucket: !Ref S3Bucket02ArnDestino
+        #         AccessControlTranslation: ## Account is required for AccessControlTranslation
+        #           Owner: Destination
+        #         Account: !Ref AwsAccountIdDestination
+        #       Id: ${Project}-replication-rule-${Environment}
+        #       Prefix: ''
+        #       Status: Enabled 
+        # LifecycleConfiguration:
+        #     Rules:
+        #     - Id: kiire-Lifetime
+        #       Prefix: glacier
+        #       Status: Enabled
+        #       ExpirationInDays: 1825 #dias para que sean eliminados los archivos del bucket#
+        #       Transitions:
+        #         - TransitionInDays: 30 #dias para pasar lo files a Glacier#
+        #           StorageClass: STANDARD_IA  
+        #         - TransitionInDays: 180
+        #           StorageClass: GLACIER_IR
+  # BucketPolicy11:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref S3Bucket11
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Action:
+  #             - 's3:GetObject'
+  #           Effect: Allow
+  #           Resource: !Join
+  #             - ''
+  #             - - 'arn:aws:s3:::'
+  #               - !Ref S3Bucket11
+  #               - /*
+  #           Principal: '*'
+
+Outputs:
+  KmsKeyId:
+      Description: Kms ID for S3 Buckets
+      Value: !GetAtt S3KMSKey.Arn
+      Export: 
+          Name: !Sub ${Project}-${Environment}-S3KMSKeyArn
+  #CloudfrontId:
+  #    Description: Cloudfront ID
+  #    Value: !Ref CloudFront01
+  #    Export: 
+  #        Name: !Sub ${Project}-${Environment}-IdDistribution

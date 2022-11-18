@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Creación de VPC"
+Description: "Creacion de VPC"
 
 Parameters:
   Environment:
@@ -47,28 +47,23 @@ Parameters:
     AllowedPattern: "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$"
     ConstraintDescription: "CIDR block parameter must be in the form x.x.x.x/16-28"
   RetentionLogs:
-    Description: Retention Days for log groups
     Type: String
     Default: 180
   RequiredVpcFlow:
     Type: String
     Default: "false"
-    Description: "Activación de VPC Flow"
     AllowedValues: [ "false", "true" ]
   RequiredVpcSQS:
     Type: String
     Default: "false"
-    Description: "Crear VPC Endpoint para SQS"
     AllowedValues: [ "false", "true" ]
   RequiredVpcAPIGateway:
     Type: String
     Default: "false"
-    Description: "Crear VPC Endpoint para API Gateway"
     AllowedValues: [ "false", "true" ]
   RequiredNAT:
     Type: String
     Default: "false"
-    Description: "Crear NAT Gateway"
     AllowedValues: [ "false", "true" ]
   # AliasPrefix:
   #   Description: Alias name prefix for kms
@@ -157,7 +152,7 @@ Resources:
           ToPort: 65535
           IpProtocol: tcp
       SecurityGroupIngress:
-        - CidrIp: 172.22.0.0/16
+        - CidrIp: !Ref VPCCIDR
           Description: Inbound traffic (Ingresar cidr para trafico de entrada)
           FromPort: 5432
           ToPort: 5432
@@ -173,7 +168,7 @@ Resources:
       GroupName: !Sub SG-VPCE-SQS-${Project}-${Environment}
       GroupDescription: VPCE SQS Sgr
       SecurityGroupIngress:
-        - CidrIp: 172.22.0.0/16
+        - CidrIp: !Ref VPCCIDR
           Description: Inbound traffic (Ingresar cidr para trafico de entrada)
           FromPort: 443
           ToPort: 443
@@ -189,7 +184,7 @@ Resources:
       GroupName: !Sub SG-VPCE-ApiGateway-${Project}-${Environment}
       GroupDescription: VPCE ApiGateway Sgr
       SecurityGroupIngress:
-        - CidrIp: 172.22.0.0/16
+        - CidrIp: !Ref VPCCIDR
           Description: Inbound traffic (Ingresar cidr para trafico de entrada)
           FromPort: 443
           ToPort: 443
@@ -496,3 +491,67 @@ Outputs:
   NodeInstanceRole:
     Description: The node instance role
     Value: !GetAtt NodeInstanceRole.Arn
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Datos de la red
+        Parameters: 
+          - VPCCIDR
+      - Label: 
+          default: Datos de las Subnet Publicas
+        Parameters: 
+          - SUBPUB1
+          - SUBPUB2
+      - Label: 
+          default: Datos de las Subnet Privadas para Aplicacion
+        Parameters: 
+          - SUBPRIV1
+          - SUBPRIV2
+      - Label: 
+          default: Datos de las Subnet Privadas para Aplicacion
+        Parameters: 
+          - SUBDATA1
+          - SUBDATA2
+      - Label: 
+          default: Componentes Adicionales
+        Parameters: 
+          - RequiredVpcFlow
+          - RetentionLogs
+          - RequiredVpcSQS
+          - RequiredVpcAPIGateway
+          - RequiredNAT
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente
+      VPCCIDR:
+        default: CI/DR de la VPC
+      SUBPUB1:
+        default: CI/DR de la Subnet Publica 1
+      SUBPUB2:
+        default: CI/DR de la Subnet Publica 2
+      SUBPRIV1:
+        default: CI/DR de la Subnet Privadas para Aplicacion 1
+      SUBPRIV2:
+        default: CI/DR de la Subnet Privadas para Aplicacion 2
+      SUBDATA1:
+        default: CI/DR de la Subnet Privadas para BD 1
+      SUBDATA2:
+        default: CI/DR de la Subnet Privadas para BD 2
+      RetentionLogs:
+        default: Tiempo de retencion de logs
+      RequiredVpcFlow:
+        default: Activar VPC Flow Logs
+      RequiredVpcSQS:
+        default: Crear VPC endpoint para SQS
+      RequiredVpcAPIGateway:
+        default: Crear VPC endpoint para API Gateway
+      RequiredNAT:
+        default: Crear NAT Gateway
