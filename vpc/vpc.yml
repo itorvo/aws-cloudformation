@@ -92,7 +92,7 @@ Resources:
         - Key: Name
           Value: !Sub VPC-${Project}-${Environment}
 
-## Subnet Publicas ##
+## Grupos de Seguridad ##
   ClusterControlPlaneSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -105,12 +105,12 @@ Resources:
           ToPort: 65535
           IpProtocol: tcp
       SecurityGroupIngress:
-        - CidrIp: !Sub ${VPCCIDR}
+        - CidrIp: !Ref VPCCIDR
           Description: Inbound traffic (Ingresar cidr para trafico de entrada)
           FromPort: 0
           ToPort: 1024
           IpProtocol: tcp
-        - CidrIp: !Sub ${VPCCIDR}
+        - CidrIp: !Ref VPCCIDR
           Description: Inbound traffic (Ingresar cidr para trafico de entrada)
           FromPort: 1024
           ToPort: 65535
@@ -453,11 +453,16 @@ Outputs:
     Value: !Ref Project
     Export:
       Name: !Sub '${AWS::StackName}-Project'
-  VPCIDO:
+  VPCID:
     Description: VPC ID
     Value: !Ref VPC
     Export:
-      Name: !Sub '${AWS::StackName}-VPCID'
+      Name: !Sub ${Project}-${Environment}-VpcId
+  VPCCIDR:
+    Description: VPC CI/DR
+    Value: !Ref VPCCIDR
+    Export:
+      Name: !Sub ${Project}-${Environment}-Vpc-CI-DR
   ClusterControlPlaneSecurityGroupO:
     Description: ClusterControlPlaneSecurityGroup Output
     Value: !Ref ClusterControlPlaneSecurityGroup

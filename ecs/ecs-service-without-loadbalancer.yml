@@ -152,9 +152,9 @@ Resources:
                 !Sub "${Project}-${Environment}-SecurityGroupApp"
           Subnets:
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SubnetPrivateApp1"
+                !Sub "${Project}-${Environment}-SrvSub1"
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SubnetPrivateApp2"
+                !Sub "${Project}-${Environment}-SrvSub2"
       ServiceRegistries:
         - RegistryArn: !If [ CDiscoveryService, !GetAtt DiscoveryService.Arn, !Ref "AWS::NoValue" ]
       TaskDefinition: !Ref TaskDefinition

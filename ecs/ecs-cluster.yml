@@ -1,6 +1,5 @@
----
 AWSTemplateFormatVersion: 2010-09-09
-Description: Deploy Fargate Ecs for Kiire - By Pragma->CloudOps
+Description: Deploy de ECS Cluster, Balanceador de Carga, VPC Link y Service Discovery
 Parameters:
   Environment:
     Type: String
@@ -11,7 +10,7 @@ Parameters:
       - pdn
   Project:
     Type: String
-    Default: kiire
+    Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
   EnablePublicIp:
     Type: String
@@ -53,7 +52,6 @@ Conditions:
       - !Condition CreateLoadBalancer
       - !Condition isPublic
       - !Equals [ true, !Ref EnableVpcLink]
-
 Resources:
   Cluster:
     Type: AWS::ECS::Cluster
@@ -73,33 +71,39 @@ Resources:
           Fn::ImportValue:
             !Sub "${Project}-${Environment}-VpcId"
   
-  # FargateContainerSecurityGroup:
-  #   Type: 'AWS::EC2::SecurityGroup'
-  #   Properties:
-  #     GroupName: kiire-sgr-services-dev
-  #     GroupDescription: Access to the Fargate containers
-  #     Tags:
-  #       - Key: Name
-  #         Value: kiire-sgr-services-dev
-  #     VpcId:
-  #       Fn::ImportValue:
-  #         !Sub "${Project}-${Environment}-VpcId"
-  # EcsSecurityGroupIngressFromVPC:
-  #   Type: 'AWS::EC2::SecurityGroupIngress'
-  #   Properties:
-  #     Description: Ingress from VPC services
-  #     GroupId: !Ref FargateContainerSecurityGroup
-  #     CidrIp: 172.22.0.0/16
-  #     FromPort: 9080
-  #     ToPort: 9086
-  #     IpProtocol: tcp
-  # EcsSecurityGroupIngressFromSelf:
-  #   Type: 'AWS::EC2::SecurityGroupIngress'
-  #   Properties:
-  #     Description: Ingress from other containers in the same security group
-  #     GroupId: !Ref FargateContainerSecurityGroup
-  #     IpProtocol: -1
-  #     SourceSecurityGroupId: !Ref FargateContainerSecurityGroup
+  SecurityGroupApp:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-sgr-services-dev
+      GroupDescription: Access to the Fargate containers
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-sgr-services-dev
+        - Key: Project
+          Value: !Sub ${Project}
+        - Key: Environment
+          Value: !Sub ${Environment}
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+  EcsSecurityGroupIngressFromVPC:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from VPC services
+      GroupId: !Ref SecurityGroupApp
+      CidrIp:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-Vpc-CI-DR
+      FromPort: 9080
+      ToPort: 9086
+      IpProtocol: tcp
+  EcsSecurityGroupIngressFromSelf:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from other containers in the same security group
+      GroupId: !Ref SecurityGroupApp
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SecurityGroupApp
   
   NetworkLoadBalancer:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
@@ -135,11 +139,11 @@ Outputs:
     Value: !Ref Cluster
     Export:
       Name: !Sub ${Project}-${Environment}-ClusterName
-  # SecurityGroupServices:
-  #   Description: "ID Security Group de Servicios de ECS"
-  #   Value: !Ref FargateContainerSecurityGroup
-  #   Export:
-  #     Name: SecurityGroupServices
+  SecurityGroupApp:
+    Description: "ID Security Group de Servicios de ECS"
+    Value: !Ref SecurityGroupApp
+    Export:
+      Name: !Sub ${Project}-${Environment}-SecurityGroupApp
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
