@@ -1,13 +1,15 @@
 var axios = require('axios');
 
 const AWSXRay = require('aws-xray-sdk-core')
-AWSXRay.captureHTTPsGlobal(require('http'));
+
 var http = require('http');
 var https = require('https');
+AWSXRay.captureHTTPsGlobal(http);
+AWSXRay.captureHTTPsGlobal(https);
 
 exports.handler = async (event, context, callback) => {
   try {
-    const list_pokemon = await getListPokemons(1, 0)
+    const list_pokemon = await getListPokemons(event.queryStringParameters.limit, event.queryStringParameters.page)
     return createResponse(200, list_pokemon);
   }
   catch (ex) {
@@ -43,8 +45,8 @@ async function getListPokemons(limit, page) {
   const subsegment = segment.addNewSubsegment('ListPokemon');
 
   let data = await instance.get(config.url).then(function (response) {
-      return response.data
-    })
+    return response.data
+  })
     .catch(function (error) {
       return null;
     });

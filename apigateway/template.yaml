@@ -264,11 +264,12 @@ Resources:
           /api-retiros-public:
             get:
               parameters:
-              - name: "Authorization"
-                in: "header"
+              - name: "limit"
+                in: "query"
                 required: true
-                schema:
-                  type: "string"
+              - name: "page"
+                in: "query"
+                required: true
               responses:
                 "200":
                   description: "200 response"
@@ -280,6 +281,8 @@ Resources:
                     application/json:
                       schema:
                         $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-request-validator: "Validate body, query string parameters,\
+              \ and headers"
               x-amazon-apigateway-integration:
                 type: "aws_proxy"
                 httpMethod: "POST"
