@@ -1,5 +1,10 @@
 var axios = require('axios');
 
+const AWSXRay = require('aws-xray-sdk-core')
+AWSXRay.captureHTTPsGlobal(require('http'));
+var http = require('http');
+var https = require('https');
+
 exports.handler = async (event, context, callback) => {
   try {
     const list_pokemon = await getListPokemons(1, 0)
@@ -23,18 +28,28 @@ function createResponse(statusCode, body) {
 }
 
 async function getListPokemons(limit, page) {
-
   var config = {
     method: 'get',
     url: `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${page}`,
     headers: {}
   };
 
-  return await axios(config)
-    .then(function (response) {
+  const instance = axios.create({
+    httpAgent: new http.Agent(),
+    httpsAgent: new https.Agent(),
+  });
+
+  const segment = AWSXRay.getSegment();
+  const subsegment = segment.addNewSubsegment('ListPokemon');
+
+  let data = await instance.get(config.url).then(function (response) {
       return response.data
     })
     .catch(function (error) {
-      throw new Error('Se presentó un error');
+      return null;
     });
+
+  subsegment.close();
+
+  return data;
 }

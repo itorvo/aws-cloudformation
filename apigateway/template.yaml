@@ -2,18 +2,15 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Api gateway
 Parameters:
   DeploymentTime:
-    Description: Parametro para establecer el ambiente
     Type: String
     Default: 0
   AllowLogs:
-    Description: Parametro para establecer el ambiente
     Type: String
     Default: 0
     AllowedValues:
       - 1
       - 0
   Environment:
-    Description: Ambiente en que está siendo desplegado el stack
     Type: String
     AllowedValues:
       - dev
@@ -21,20 +18,20 @@ Parameters:
       - pdn
     Default: dev
   Project:
-    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+  ApiName:
     Type: String
     Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
   S3KeyFileLambdaAuthorizer:
-    Description: Key en S3 del archivo con el código de la lambda authorizer
     Type: String
     Default: lambda-authorizer-package202956.zip
   S3KeyFileLambdaBackEnd:
-    Description: Key en S3 del archivo con el código de la lambda backend
     Type: String
     Default: lambda-back-package202956.zip
   CertificateKey:
-    Description: Key del Certificado SSL
     Type: String
     Default: "NO"
     AllowedPattern: (NO)|((\w|\d){8})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){12})
@@ -67,7 +64,7 @@ Conditions:
   SinCertificadoNiDominio: !Or [ Condition: SinDominio, Condition: SinCertificado ]
   SinCustomDomain: !Not [ Condition: SinCertificadoNiDominio ]
   isDummyAuth: !Equals [ true, !Ref DummyAuthorizer ]
-  EnableDefaultEndpoint: !Equals [ true, !Ref DefaultEndpoint ]
+  EnableXRay: !Equals [ true, !Ref TracingXRay ]
 Resources:
   
   LambdaAuthorizerRole:
@@ -119,7 +116,9 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
-      ManagedPolicyArns: !If [ EnableLogs, arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole, !Ref AWS::NoValue ]
+      ManagedPolicyArns:
+        - !If [ EnableLogs, arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole, !Ref AWS::NoValue ]
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
       RoleName: !Sub ${Project}-${Environment}-role-lambda-backend
   LambdaBackend:
     Type: AWS::Lambda::Function
@@ -135,6 +134,9 @@ Resources:
       Role: !GetAtt LambdaBackendRole.Arn
       Runtime: nodejs16.x
       Timeout: 128
+      TracingConfig:
+          Mode: !If [ EnableXRay, Active, PassThrough ]
+
   LambdaBackendPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -145,21 +147,16 @@ Resources:
   ApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Description: API Gateway Proyecto Retiros | Pragma
-      Name: !Sub ${Project}-${Environment}-RetirosPragma
+      Description: !Ref ApiName
+      Name: !Sub ${Project}-${Environment}-${ApiName}
       EndpointConfiguration:
         Types:
           - REGIONAL
       ApiKeySourceType: HEADER
       Body:
         openapi: "3.0.1"
-        info:
-          title: !Sub ${Project}-${Environment}-RetirosPragma
-          description: !Sub ${Project}-${Environment}-RetirosPragma
-          version: "2022-11-11T04:15:15Z"
-        servers:
-        - x-amazon-apigateway-endpoint-configuration:
-            disableExecuteApiEndpoint: !If [ EnableDefaultEndpoint, true, false ]
+        x-amazon-apigateway-endpoint-configuration:
+          disableExecuteApiEndpoint: !Ref DefaultEndpoint
         paths:
           /api-retiros:
             get:
@@ -367,7 +364,6 @@ Resources:
             validateRequestBody: true
   Deployment:
     Type: Custom::ApiDeployment
-    DeletionPolicy: Retain
     Properties:
       ServiceToken:
         Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
@@ -422,3 +418,52 @@ Outputs:
     Value: !Ref ApiGateway
     Export:
       Name: !Sub ${Project}-${Environment}-ApiGatewayId
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Datos del API Gateway
+        Parameters: 
+          - ApiName
+          - DefaultEndpoint
+          - DomainBack
+          - CertificateKey
+          - TracingXRay
+          - DeploymentTime
+      - Label: 
+          default: Datos del Funciones Lambda
+        Parameters: 
+          - AllowLogs
+          - S3KeyFileLambdaAuthorizer
+          - S3KeyFileLambdaBackEnd
+          - DummyAuthorizer
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente
+      DeploymentTime: 
+        default: Dato para generar un nuevo deployment del API
+      AllowLogs: 
+        default: Habilitar permisos para generar logs de las funciones Lambdas
+      S3KeyFileLambdaAuthorizer: 
+        default: Key del archivo con el codigo de la lambda Authorizer
+      S3KeyFileLambdaBackEnd: 
+        default: Key del archivo con el codigo de la lambda Backend
+      CertificateKey: 
+        default: Key del certificado SSL
+      DomainBack: 
+        default: Custom Domain para el API Gateway
+      DummyAuthorizer: 
+        default: Authorizador Dummy
+      DefaultEndpoint: 
+        default: Activar endpoint por defecto
+      TracingXRay: 
+        default: Activar monitoreo con AWS X-Ray
+      ApiName: 
+        default: Nombre del API Gateway
