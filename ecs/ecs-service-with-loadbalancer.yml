@@ -41,7 +41,7 @@ Parameters:
   NumberTask:
     Description: Cantidad de Tareas deseadas
     Type: Number
-    Default: 1
+    Default: 0
     MinValue: 0
     MaxValue: 2
 
@@ -51,12 +51,6 @@ Parameters:
     AllowedValues:
       - false
       - true
-  EnablePublicIp:
-    Type: String
-    Default: DISABLED
-    AllowedValues:
-      - ENABLED
-      - DISABLED
   
 Conditions:
   CDiscoveryService: !Equals ["true", !Ref EnableDiscoveryService ]
@@ -149,10 +143,9 @@ Resources:
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_URL_DEV
           #   - Name: DB_USERNAME
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_USERNAME_DEV
-          Image: !Join 
-            - ':'
-            - - !GetAtt EcrRegistry.Arn
-              - latest
+          Image: !Sub
+            - ${repositoryUri}:latest
+            - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
@@ -160,7 +153,7 @@ Resources:
             Options:
               awslogs-group: !Ref CloudWatchLogsGroup
               awslogs-region: !Ref 'AWS::Region'
-              # awslogs-stream-prefix: ecs
+              awslogs-stream-prefix: ecs
   ECSService:
     Type: 'AWS::ECS::Service'
     DependsOn:
@@ -177,7 +170,7 @@ Resources:
       DesiredCount: !Ref NumberTask
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: !Ref EnablePublicIp
+          AssignPublicIp: DISABLED
           SecurityGroups:
             - Fn::ImportValue:
                 !Sub "${Project}-${Environment}-SecurityGroupApp"
@@ -187,7 +180,10 @@ Resources:
             - Fn::ImportValue:
                 !Sub "${Project}-${Environment}-SubnetPrivateApp2"
       ServiceRegistries:
-        - RegistryArn: !If [ CDiscoveryService, !GetAtt DiscoveryService.Arn, !Ref "AWS::NoValue" ]
+        !If
+          - CDiscoveryService
+          - - RegistryArn: !GetAtt DiscoveryService.Arn
+          - !Ref AWS::NoValue
       TaskDefinition: !Ref TaskDefinition
       LoadBalancers:
         - ContainerName: !Sub "${Project}-${Environment}-${MicroServiceName}-container"

@@ -477,22 +477,22 @@ Outputs:
     Description: PubSub1 Output
     Value: !Ref PubSub1
     Export:
-      Name: !Sub '${AWS::StackName}-PubSub1'
+      Name: !Sub ${Project}-${Environment}-PubSub1
   PubSub2O:
     Description: PubSub2 Output
     Value: !Ref PubSub2
     Export:
-      Name: !Sub '${AWS::StackName}-PubSub2'
+      Name: !Sub ${Project}-${Environment}-PubSub2
   SrvSub1O:
     Description: SrvSub1 Output
     Value: !Ref SrvSub1
     Export:
-      Name: !Sub '${AWS::StackName}-SrvSub1'
+      Name: !Sub ${Project}-${Environment}-SrvSub1
   SrvSub2O:
     Description: SrvSub2 Output
     Value: !Ref SrvSub2
     Export:
-      Name: !Sub '${AWS::StackName}-SrvSub2'
+      Name: !Sub ${Project}-${Environment}-SrvSub2
   NodeInstanceRole:
     Description: The node instance role
     Value: !GetAtt NodeInstanceRole.Arn

@@ -10,39 +10,33 @@ Parameters:
       - qa
       - prod
   Project:
-    Description: Nombre del Proyecto
     Type: String
     Default: ito
   MicroServiceName:
-    Description: Nombre del MicroServicio
     Type: String
     Default: dummy
-    #AllowedPattern:
+    AllowedPattern: ^([a-z]|[0-9])*$
   Port:
-    Description: Puerto que expondrá el MicroServicio
     Type: Number
     Default: 9000
     MinValue: 9000
     MaxValue: 9999
   
   CPU:
-    Description: Cantidad de CPU asignada
     Type: String
     Default: "256"
     AllowedValues:
       - "256"
       - "512"
   RAM:
-    Description: Cantidad de RAM asignada
     Type: String
     Default: "512"
     AllowedValues:
       - "512"
       - "1024"
   NumberTask:
-    Description: Cantidad de Tareas deseadas
     Type: Number
-    Default: 1
+    Default: 0
     MinValue: 0
     MaxValue: 2
 
@@ -52,15 +46,20 @@ Parameters:
     AllowedValues:
       - false
       - true
-  EnablePublicIp:
+  PublicId:
     Type: String
-    Default: DISABLED
+    Default: ENABLED
     AllowedValues:
       - ENABLED
       - DISABLED
+  DayRetentionLogs:
+    Type: String
+    Default: 1
+    AllowedPattern: ^[1|3|5|7|14|30]?
   
 Conditions:
   CDiscoveryService: !Equals [ "true", !Ref EnableDiscoveryService ]
+  isPublic: !Equals [ ENABLED, PublicId ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
@@ -82,18 +81,18 @@ Resources:
       Name: !Ref MicroServiceName
       NamespaceId:
         Fn::ImportValue:
-          !Sub "${Project}-${Environment}-NameSpaceCloudMapId"
+          !Sub ${Project}-${Environment}-NameSpaceCloudMapId
   
   CloudWatchLogsGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: /ecs/kiire-ecs-master-data
-      RetentionInDays: 7
+      LogGroupName: !Sub /ecs/${Project}-${Environment}-${MicroServiceName}
+      RetentionInDays: !Ref DayRetentionLogs
   
   TaskDefinition:
-    Type: 'AWS::ECS::TaskDefinition'
+    Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub "${Project}-${Environment}-${MicroServiceName}"
+      Family: !Sub ${Project}-${Environment}-${MicroServiceName}
       Cpu: !Ref CPU
       Memory: !Ref RAM
       NetworkMode: awsvpc
@@ -101,44 +100,40 @@ Resources:
         - FARGATE
       ExecutionRoleArn:
         Fn::ImportValue:
-          !Sub "${Project}-${Environment}-ECSTaskExecutionRoleArn"
+          !Sub ${Project}-${Environment}-ECSTaskExecutionRoleArn
       TaskRoleArn:
         Fn::ImportValue:
-          !Sub "${Project}-${Environment}-ECSTaskRoleArn"
+          !Sub ${Project}-${Environment}-ECSTaskRoleArn
       ContainerDefinitions:
-        - Name: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
+        - Name: !Sub ${Project}-${Environment}-${MicroServiceName}-container
           # EnvironmentFiles:
           #   - Type: s3
           #     Value: arn:aws:s3:::kiire-s3-ecs-env-files-dev/dev/kiire-ecs-env-file-dev.env
-          # Environment:
+          Environment:
+            - Name: PORT
+              Value: !Ref Port
           # Secrets:
           #   - Name: stage
-          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/STAGE
-          #   - Name: DB_PASSWORD
-          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_PASSWORD_DEV
-          #   - Name: DB_URL
-          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_URL_DEV
-          #   - Name: DB_USERNAME
-          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_USERNAME_DEV
-          Image: !Join 
-            - ':'
-            - - !GetAtt EcrRegistry.Arn
-              - latest
+          #     ValueFrom: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}
+          Image: !Sub
+            - ${repositoryUri}:latest
+            - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref CloudWatchLogsGroup
-              awslogs-region: !Ref 'AWS::Region'
-              # awslogs-stream-prefix: ecs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+  
   ECSService:
-    Type: 'AWS::ECS::Service'
+    Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub "${Project}-${Environment}-${MicroServiceName}"
+      ServiceName: !Sub ${Project}-${Environment}-${MicroServiceName}
       Cluster:
         Fn::ImportValue:
-          !Sub "${Project}-${Environment}-Cluster"
+          !Sub ${Project}-${Environment}-ClusterName
       LaunchType: FARGATE
       DeploymentConfiguration:
         MaximumPercent: 200
@@ -146,17 +141,26 @@ Resources:
       DesiredCount: !Ref NumberTask
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: !Ref EnablePublicIp
+          AssignPublicIp: !Ref PublicId
           SecurityGroups:
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SecurityGroupApp"
+                !Sub ${Project}-${Environment}-SecurityGroupApp
           Subnets:
-            - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SrvSub1"
-            - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SrvSub2"
+            !If 
+              - isPublic
+              - - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-PubSub1
+                - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-PubSub2
+              - - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-SrvSub1
+                - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-SrvSub2
       ServiceRegistries:
-        - RegistryArn: !If [ CDiscoveryService, !GetAtt DiscoveryService.Arn, !Ref "AWS::NoValue" ]
+        !If
+          - CDiscoveryService
+          - - RegistryArn: !GetAtt DiscoveryService.Arn
+          - !Ref AWS::NoValue
       TaskDefinition: !Ref TaskDefinition
   
 # Outputs:
@@ -168,3 +172,43 @@ Resources:
 #     Value: !Ref FargateContainerSecurityGroup
 #     Export:
 #       Name: SecurityGroupServices
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Datos del micro-servicio
+        Parameters: 
+          - MicroServiceName
+          - Port
+          - CPU
+          - RAM
+          - NumberTask
+          - DayRetentionLogs
+          - PublicId
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente
+      MicroServiceName:
+        default: Nombre del micro-servicio
+      Port:
+        default: Numero del Puerto
+      CPU:
+        default: Cantidad de CPU
+      RAM:
+        default: Cantidad de Memoria RAM
+      NumberTask:
+        default: Numero de Tareas
+      EnableDiscoveryService:
+        default: Requiere Discovery Service
+      PublicId:
+        default: Asignar IP Publica
+      DayRetentionLogs:
+        default: Cantidad de dias de almacenamiento de logs

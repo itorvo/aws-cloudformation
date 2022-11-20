@@ -3,7 +3,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Creacion de Roles y Politicas para Proyecto
 Parameters:
   Environment:
-    Description: Ambiente del Proyecto.
     Type: String
     Default: dev
     AllowedValues:
@@ -90,8 +89,6 @@ Resources:
               - logs:PutLogEvents
             Resource: '*'
       Roles:
-        - !Ref ECSTaskExecutionRole
-        - !Ref ECSTaskRole
         - !Ref RoleLambdaExecution
         - !Ref RoleLambdaEdgeExecution
         - !Ref RoleEmailChannelPinpoint
@@ -112,7 +109,8 @@ Resources:
               - sts:AssumeRole
       RoleName: !Sub ${Project}-${Environment}-ecs-task-execution-role
       Path: /
-  
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -319,4 +317,4 @@ Metadata:
       Project: 
         default: Nombre del Proyecto
       Environment: 
-        default: Nombre del ambiente
+        default: Nombre del Ambiente
