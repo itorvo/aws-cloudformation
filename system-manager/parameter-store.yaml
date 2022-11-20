@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploy de ECS Cluster, Balanceador de Carga, VPC Link y Service Discovery
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+  XRayAgentConfig:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      DataType: text
+      Description: Configuración del Agente de X-Ray
+      Name: !Sub ${Project}-${Environment}-ecs-cwagent
+      Tier: Standard
+      Type: String
+      Value: '{ "logs": { "metrics_collected": { "emf": {} } } }'

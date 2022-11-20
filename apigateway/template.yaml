@@ -23,15 +23,16 @@ Parameters:
   Project:
     Description: Nombre del Proyecto
     Type: String
-    Default: copapragma
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
   S3KeyFileLambdaAuthorizer:
     Description: Key en S3 del archivo con el código de la lambda authorizer
     Type: String
-    Default: authorizer-package095019.zip
+    Default: lambda-authorizer-package202956.zip
   S3KeyFileLambdaBackEnd:
     Description: Key en S3 del archivo con el código de la lambda backend
     Type: String
-    Default: backend-package095019.zip
+    Default: lambda-back-package202956.zip
   CertificateKey:
     Description: Key del Certificado SSL
     Type: String
@@ -39,7 +40,7 @@ Parameters:
     AllowedPattern: (NO)|((\w|\d){8})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){12})
   DomainBack:
     Type: String
-    Default: "NO" # api.retiros.pragma.com.co
+    Default: "NO"
     AllowedPattern: (NO)|((^api)\.(\w*\d*)((.pragma.com.co)))
   DummyAuthorizer:
     Type: String
@@ -48,6 +49,12 @@ Parameters:
       - true
       - false
   DefaultEndpoint:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  TracingXRay:
     Type: String
     Default: false
     AllowedValues:
@@ -83,7 +90,7 @@ Resources:
     Properties:
       Code:
         S3Bucket:
-          Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
+          Fn::ImportValue: !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
         S3Key: !Ref S3KeyFileLambdaAuthorizer
       Description: Lambda prueba deploy
       FunctionName: !Sub ${Project}-${Environment}-lambda-authorizer
@@ -98,7 +105,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref LambdaAuthorizer
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiRest}/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*
   LambdaBackendRole:
     Type: AWS::IAM::Role
     Properties:
@@ -119,7 +126,7 @@ Resources:
     Properties:
       Code:
         S3Bucket:
-          Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
+          Fn::ImportValue: !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
         S3Key: !Ref S3KeyFileLambdaBackEnd
       Description: Lambda prueba deploy
       FunctionName: !Sub ${Project}-${Environment}-lambda-backend
@@ -134,8 +141,8 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref LambdaBackend
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiRest}/*
-  ApiRest:
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*
+  ApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Description: API Gateway Proyecto Retiros | Pragma
@@ -364,19 +371,19 @@ Resources:
     Properties:
       ServiceToken:
         Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
-      restApiId: !Ref ApiRest
+      restApiId: !Ref ApiGateway
       description: !Sub Deployment in ${DeploymentTime}
       DeploymentTime: !Ref DeploymentTime
   Stage:
     Type: AWS::ApiGateway::Stage
     Properties:
       DeploymentId: !Ref Deployment
-      RestApiId: !Ref ApiRest
+      RestApiId: !Ref ApiGateway
       Description: Default Stage
       StageName: !Ref Environment
       Variables:
         host: test
-      # TracingEnabled: true
+      TracingEnabled: !Ref TracingXRay
       # AccessLogSetting:
       #   DestinationArn:
       #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
@@ -406,12 +413,12 @@ Resources:
     Condition: SinCustomDomain
     Properties: 
       DomainName: !Ref APICustomDomainName
-      RestApiId: !Ref ApiRest
+      RestApiId: !Ref ApiGateway
       Stage: !Ref Environment
 
 Outputs:
-  APIRest:
-    Description: ApiRest id generated
-    Value: !Ref ApiRest
+  ApiGateway:
+    Description: ApiGateway id generated
+    Value: !Ref ApiGateway
     Export:
-      Name: !Sub ${Project}-${Environment}-APIRestId
+      Name: !Sub ${Project}-${Environment}-ApiGatewayId

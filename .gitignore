@@ -117,3 +117,6 @@ jspm_packages
 # Coverage Unit Test
 .nyc_output
 coverage
+
+# Files Custom
+code-example.js

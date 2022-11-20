@@ -4,16 +4,14 @@ Parameters:
   KeyFileLambdaDeployment:
     Type: String
     Description: Nombre del archivo con el deployment de la lambda para generar versión
-  S3LambdaDeployment:
-    Type: String
-    Description: Nombre del archivo con el deployment de la lambda para generar versión
+    Default: LambdaDeployment201625.zip
   Project:
     Type: String
-    Description: Nombre del archivo con el deployment de la lambda para generar versión
-    Default: kiire
+    Description: Nombre del Proyecto
+    Default: ito
   Environment:
     Type: String
-    Description: Nombre del ambiente
+    Description: Nombre del Ambiente
     Default: dev
     AllowedValues:
       - dev
@@ -31,11 +29,13 @@ Resources:
       Description: Lambda para crear recursos de AWS
       FunctionName: !Sub ${Project}-${Environment}-lambda-deployment-custom-resources
       Code:
-        S3Bucket: !Ref S3LambdaDeployment
+        S3Bucket:
+          Fn::ImportValue:
+            !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
         S3Key: !Ref KeyFileLambdaDeployment
 Outputs:
-  CreateCustomResourceLambdaArn:
-    Description: Arn de la CreateCustomResourceLambdaArn para crear recursos
+  DeploymentLambdaArn:
+    Description: Arn de la Lambda para crear recursos
     Value: !GetAtt DeploymentLambda.Arn
     Export:
-      Name: !Sub ${Project}-${Environment}-CreateCustomResourceLambdaArn
+      Name: !Sub ${Project}-${Environment}-DeploymentLambdaArn

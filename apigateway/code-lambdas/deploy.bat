@@ -2,7 +2,7 @@
 set CUR_HH=%time:~0,2%
 if %CUR_HH% lss 10 (set CUR_HH=0%time:~1,1%)
 set version=%CUR_HH%%time:~3,2%%time:~6,2%
-set bucket=copapragma-dev-lambda-deployments
+set bucket=ito-437950194672-lambda-deployments
 set url_bucket=s3://%bucket%/
 
 : Deploy Lambda authorizer
