@@ -22,3 +22,9 @@ Resources:
       Tier: Standard
       Type: String
       Value: '{ "logs": { "metrics_collected": { "emf": {} } } }'
+Outputs:
+  XRayAgentConfigArn:
+    Description: Arn del Parametro con la configuracion de X-Ray para ECS
+    Value: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${XRayAgentConfig}
+    Export:
+      Name: !Sub ${Project}-${Environment}-XRayAgentConfigArn

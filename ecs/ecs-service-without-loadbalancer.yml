@@ -105,6 +105,32 @@ Resources:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-ECSTaskRoleArn
       ContainerDefinitions:
+        - Name: !Sub ${Project}-${Environment}-xray-daemon
+          Image: public.ecr.aws/xray/aws-xray-daemon:latest
+          # Cpu: 32
+          # MemoryReservation: 256
+          PortMappings:
+            - ContainerPort: 2000
+              Protocol: udp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+        # - Name: cloudwatch-agent
+        #   Image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest
+        #   Secrets:
+        #     - Name: CW_CONFIG_CONTENT
+        #       ValueFrom:
+        #         Fn::ImportValue:
+        #           !Sub ${Project}-${Environment}-XRayAgentConfigArn
+        #   LogConfiguration:
+        #     LogDriver: awslogs
+        #     Options:
+        #       awslogs-group: !Ref CloudWatchLogsGroup
+        #       awslogs-region: !Ref AWS::Region
+        #       awslogs-stream-prefix: ecs
         - Name: !Sub ${Project}-${Environment}-${MicroServiceName}-container
           # EnvironmentFiles:
           #   - Type: s3
@@ -112,9 +138,6 @@ Resources:
           Environment:
             - Name: PORT
               Value: !Ref Port
-          # Secrets:
-          #   - Name: stage
-          #     ValueFrom: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}
           Image: !Sub
             - ${repositoryUri}:latest
             - repositoryUri: !GetAtt EcrRegistry.RepositoryUri

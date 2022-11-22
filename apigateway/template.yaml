@@ -57,6 +57,10 @@ Parameters:
     AllowedValues:
       - true
       - false
+  DummyIP:
+    Type: String
+    Default: '1.1.1.1'
+    AllowedPattern: ^(((\d){1,3})\.((\d){1,3})\.((\d){1,3})\.((\d){1,3}))$
 Conditions:
   EnableLogs: !Equals [ 1, !Ref AllowLogs ]
   SinDominio: !Equals [ "NO", !Ref DomainBack ]
@@ -136,7 +140,6 @@ Resources:
       Timeout: 128
       TracingConfig:
           Mode: !If [ EnableXRay, Active, PassThrough ]
-
   LambdaBackendPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -327,6 +330,23 @@ Resources:
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
+          /api-dummy:
+            get:
+              produces:
+              - application/json
+              responses:
+                "200":
+                  description: 200 response
+                  schema:
+                    $ref: "#/definitions/Empty"
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                uri: !Sub http://${DummyIP}:9000/api/dummy
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: when_no_match
+                type: http
         components:
           schemas:
             Empty:
