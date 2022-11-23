@@ -1,0 +1,11 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create Templates in SES
+Resources:
+  TestTemplate:
+    Type: AWS::SES::Template
+    Properties: 
+      Template: 
+        TextPart: Hello {{name}}! This is the text part of the message.
+        SubjectPart: Amazon SES Test Message
+        TemplateName: TestMessage
+        HtmlPart: <html><body><h2>Hello {{name}}!</h2><p>This is the HTML part of the message.</p></body></html>
