@@ -45,7 +45,7 @@ Parameters:
     AllowedValues:
       - true
       - false
-  DefaultEndpoint:
+  DisableDefaultEndpoint:
     Type: String
     Default: false
     AllowedValues:
@@ -140,6 +140,15 @@ Resources:
       Timeout: 128
       TracingConfig:
           Mode: !If [ EnableXRay, Active, PassThrough ]
+      # VpcConfig:
+      #   SubnetIds:
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SrvSub1
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SrvSub2
+      #   SecurityGroupIds:
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SecurityGroupApp
   LambdaBackendPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -159,7 +168,7 @@ Resources:
       Body:
         openapi: "3.0.1"
         x-amazon-apigateway-endpoint-configuration:
-          disableExecuteApiEndpoint: !Ref DefaultEndpoint
+          disableExecuteApiEndpoint: !Ref DisableDefaultEndpoint
         paths:
           /api-retiros:
             get:
@@ -402,7 +411,6 @@ Resources:
       StageName: !Ref Environment
       Variables:
         host: test
-      TracingEnabled: !Ref TracingXRay
       # AccessLogSetting:
       #   DestinationArn:
       #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
@@ -415,7 +423,7 @@ Resources:
       #     ResourcePath: /*
       #     ThrottlingBurstLimit: 5000
       #     ThrottlingRateLimit: 10000
-
+      TracingEnabled: !Ref TracingXRay
   APICustomDomainName:
     Type: AWS::ApiGateway::DomainName
     Condition: SinCustomDomain
@@ -426,7 +434,6 @@ Resources:
         Types:
           - REGIONAL
       SecurityPolicy: TLS_1_2
-
   MappingAPI:
     Type: AWS::ApiGateway::BasePathMapping
     Condition: SinCustomDomain
@@ -453,7 +460,7 @@ Metadata:
           default: Datos del API Gateway
         Parameters: 
           - ApiName
-          - DefaultEndpoint
+          - DisableDefaultEndpoint
           - DomainBack
           - CertificateKey
           - TracingXRay
@@ -484,8 +491,8 @@ Metadata:
         default: Custom Domain para el API Gateway
       DummyAuthorizer: 
         default: Authorizador Dummy
-      DefaultEndpoint: 
-        default: Activar endpoint por defecto
+      DisableDefaultEndpoint: 
+        default: Inactivar el endpoint por defecto
       TracingXRay: 
         default: Activar monitoreo con AWS X-Ray
       ApiName: 

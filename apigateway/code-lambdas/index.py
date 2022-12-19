@@ -22,7 +22,7 @@ def lambda_handler_dummy(event, context):
 
 def lambda_handler(event, context):
 
-    # Get environment variables - Deberá estar definido fuera de la función lambda_handler
+    # Get environment variables - Deberá estar definido a nivel global
     region = os.environ.get("Region")
     userPoolId = os.environ.get("UserPoolId")
     clientId = os.environ.get("ClientId")
@@ -30,6 +30,7 @@ def lambda_handler(event, context):
     keys_url = 'https://cognito-idp.{}.amazonaws.com/{}/.well-known/jwks.json'.format(region, userPoolId)
     with urllib.request.urlopen(keys_url) as f: response = f.read()
     keys = json.loads(response.decode('utf-8'))['keys']
+    # Get environment variables - Deberá estar definido a nivel global
 
     try:
         token = event['authorizationToken']

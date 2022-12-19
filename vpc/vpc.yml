@@ -53,14 +53,6 @@ Parameters:
     Type: String
     Default: "false"
     AllowedValues: [ "false", "true" ]
-  RequiredVpcSQS:
-    Type: String
-    Default: "false"
-    AllowedValues: [ "false", "true" ]
-  RequiredVpcAPIGateway:
-    Type: String
-    Default: "false"
-    AllowedValues: [ "false", "true" ]
   RequiredNAT:
     Type: String
     Default: "false"
@@ -72,10 +64,6 @@ Parameters:
 Conditions:
   EnableVpcFlow:
     !Equals ["true", !Ref "RequiredVpcFlow"]
-  EnableVpcSQS:
-    !Equals ["true", !Ref "RequiredVpcSQS"]
-  EnableVpcAPIGateway:
-    !Equals ["true", !Ref "RequiredVpcAPIGateway"]
   EnableNAT:
     !Equals ["true", !Ref "RequiredNAT"]
 Resources:
@@ -161,39 +149,7 @@ Resources:
         - Key: Name
           Value: !Sub SG-DataBase-${Project}-${Environment}
       VpcId: !Ref VPC
-  SgrVpceSQS:
-    Type: 'AWS::EC2::SecurityGroup'
-    Condition: EnableVpcSQS
-    Properties:
-      GroupName: !Sub SG-VPCE-SQS-${Project}-${Environment}
-      GroupDescription: VPCE SQS Sgr
-      SecurityGroupIngress:
-        - CidrIp: !Ref VPCCIDR
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 443
-          ToPort: 443
-          IpProtocol: tcp
-      Tags:
-        - Key: Name
-          Value: !Sub SG-VPCE-SQS-${Project}-${Environment}
-      VpcId: !Ref VPC
-  SgrApiGateway:
-    Type: 'AWS::EC2::SecurityGroup'
-    Condition: EnableVpcAPIGateway
-    Properties:
-      GroupName: !Sub SG-VPCE-ApiGateway-${Project}-${Environment}
-      GroupDescription: VPCE ApiGateway Sgr
-      SecurityGroupIngress:
-        - CidrIp: !Ref VPCCIDR
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 443
-          ToPort: 443
-          IpProtocol: tcp
-      Tags:
-        - Key: Name
-          Value: !Sub SG-VPCE-ApiGateway-${Project}-${Environment}
-      VpcId: !Ref VPC
-
+  
 ## Subnet Publicas ##
   PubSub1:
     Type: 'AWS::EC2::Subnet'
@@ -399,30 +355,6 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy'
         - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
   
-## VPC Endpoints ##
-  SQSVPCEndpoint:
-    Type: 'AWS::EC2::VPCEndpoint'
-    Condition: EnableVpcSQS
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.sqs
-      VpcId: !Ref VPC
-      SubnetIds: 
-        - !Ref SrvSub1
-      SecurityGroupIds:
-        - !Ref SgrVpceSQS
-  APIGATEWAYVPCEndpoint:
-    Type: 'AWS::EC2::VPCEndpoint'
-    Condition: EnableVpcAPIGateway
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.execute-api 
-      VpcId: !Ref VPC
-      SubnetIds: 
-        - !Ref SrvSub1
-      SecurityGroupIds:
-        - !Ref SgrApiGateway
-
 ## Enable VPC Flow ##
   LogGroupVPCFlowLogs: 
     Type: AWS::Logs::LogGroup
@@ -528,8 +460,6 @@ Metadata:
         Parameters: 
           - RequiredVpcFlow
           - RetentionLogs
-          - RequiredVpcSQS
-          - RequiredVpcAPIGateway
           - RequiredNAT
     ParameterLabels: 
       Project: 
@@ -554,9 +484,5 @@ Metadata:
         default: Tiempo de retencion de logs
       RequiredVpcFlow:
         default: Activar VPC Flow Logs
-      RequiredVpcSQS:
-        default: Crear VPC endpoint para SQS
-      RequiredVpcAPIGateway:
-        default: Crear VPC endpoint para API Gateway
       RequiredNAT:
         default: Crear NAT Gateway

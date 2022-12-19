@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Creacion de VPC"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: "A friendly environment name that will be used for namespacing all resources (valid options are dev, qa or production)"
+    AllowedValues: [ dev, qa, prod ]
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+## Grupo de Seguridad ##
+  SecurityGroupVPCEndpoints:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
+      GroupDescription: Security Group VPC Endpoints
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+  
+  SecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the same security group
+      GroupId: !Ref SecurityGroupVPCEndpoints
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SecurityGroupVPCEndpoints
+  
+  SecurityGroupIngressFromBackEnd:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from Security Group BackEnd
+      GroupId: !Ref SecurityGroupVPCEndpoints
+      SourceSecurityGroupId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-SecurityGroupApp
+      IpProtocol: -1
+
+## VPC Endpoints ##
+  XRay:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.xray
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - !Ref SecurityGroupVPCEndpoints
+
+Outputs:
+  VPCEXRay:
+    Description: VPC Endpoint X-Ray
+    Value: !Ref XRay
+    Export:
+      Name: !Sub ${Project}-${Environment}-VPCE-X-Ray
+  Project:
+    Description: Ambiente establecido
+    Value: !Ref Project
+    Export:
+      Name: !Sub ${AWS::StackName}-Project
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente

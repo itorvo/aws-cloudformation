@@ -74,11 +74,11 @@ Resources:
   SecurityGroupApp:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupName: !Sub ${Project}-${Environment}-sgr-services-dev
+      GroupName: !Sub ${Project}-${Environment}-sgr-services
       GroupDescription: Access to the Fargate containers
       Tags:
         - Key: Name
-          Value: !Sub ${Project}-${Environment}-sgr-services-dev
+          Value: !Sub ${Project}-${Environment}-sgr-services
         - Key: Project
           Value: !Sub ${Project}
         - Key: Environment
