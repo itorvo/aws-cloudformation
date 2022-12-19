@@ -173,7 +173,7 @@ Resources:
           AssignPublicIp: DISABLED
           SecurityGroups:
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SecurityGroupApp"
+                !Sub "${Project}-${Environment}-SecurityGroupBackEnd"
           Subnets:
             - Fn::ImportValue:
                 !Sub "${Project}-${Environment}-SubnetPrivateApp1"

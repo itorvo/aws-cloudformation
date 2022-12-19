@@ -166,7 +166,7 @@ Resources:
           AssignPublicIp: !Ref PublicIp
           SecurityGroups:
             - Fn::ImportValue:
-                !Sub ${Project}-${Environment}-SecurityGroupApp
+                !Sub ${Project}-${Environment}-SecurityGroupBackEnd
           Subnets:
             !If 
               - isPublic

@@ -68,7 +68,7 @@ Conditions:
     !Equals ["true", !Ref "RequiredNAT"]
 Resources:
   VPC:
-    Type: 'AWS::EC2::VPC'
+    Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Sub ${VPCCIDR}
       EnableDnsSupport: true
@@ -82,7 +82,7 @@ Resources:
 
 ## Grupos de Seguridad ##
   ClusterControlPlaneSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub SG-SRV-${Project}-${Environment}
       GroupDescription: SRV Net Sgr
@@ -108,7 +108,7 @@ Resources:
           Value: !Sub SG-SRV-${Project}-${Environment}
       VpcId: !Ref VPC
   SgrBastion:
-    Type: 'AWS::EC2::SecurityGroup'
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub SG-BAS-${Project}-${Environment}
       GroupDescription: SSH Bastion Sgr
@@ -129,7 +129,7 @@ Resources:
           Value: !Sub SG-BAS-${Project}-${Environment}
       VpcId: !Ref VPC
   SgrData:
-    Type: 'AWS::EC2::SecurityGroup'
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub SG-DataBase-${Project}-${Environment}
       GroupDescription: DataBase Sgr
@@ -150,9 +150,39 @@ Resources:
           Value: !Sub SG-DataBase-${Project}-${Environment}
       VpcId: !Ref VPC
   
+  SecurityGroupBackEnd:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-security-group-backend
+      GroupDescription: Access to the Fargate containers
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-security-group-backend
+        - Key: Project
+          Value: !Sub ${Project}
+        - Key: Environment
+          Value: !Sub ${Environment}
+      VpcId: !Ref VPC
+  EcsSecurityGroupIngressFromVPC:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from VPC services
+      GroupId: !Ref SecurityGroupBackEnd
+      CidrIp: !Ref VPCCIDR
+      FromPort: 9080
+      ToPort: 9086
+      IpProtocol: tcp
+  EcsSecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from other containers in the same security group
+      GroupId: !Ref SecurityGroupBackEnd
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SecurityGroupBackEnd
+
 ## Subnet Publicas ##
   PubSub1:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -166,7 +196,7 @@ Resources:
           Value: !Sub Sub-Public1-${Project}-${Environment}     
       VpcId: !Ref VPC
   PubSub2:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -182,7 +212,7 @@ Resources:
 
 ## Subnet Privada Backend ##
   SrvSub1:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -196,7 +226,7 @@ Resources:
           Value: !Sub Sub-Services1-${Project}-${Environment}
       VpcId: !Ref VPC
   SrvSub2:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -212,7 +242,7 @@ Resources:
 
 ## Subnet Privada Base de datos ##
   DataSub1:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -226,7 +256,7 @@ Resources:
           Value: !Sub Sub-DataBase1-${Project}-${Environment}
       VpcId: !Ref VPC
   DataSub2:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone:
         Fn::Select:
@@ -242,7 +272,7 @@ Resources:
 
 ## NAT Gateway ##
   NATGW1:
-    Type: 'AWS::EC2::NatGateway'
+    Type: AWS::EC2::NatGateway
     Condition: EnableNAT
     DependsOn:
       - AttIGW
@@ -255,12 +285,12 @@ Resources:
         - Key: Name
           Value: !Sub NATGW1-${Project}-${Environment}
   Nat1IP:
-    Type: 'AWS::EC2::EIP'
+    Type: AWS::EC2::EIP
     Condition: EnableNAT
     Properties:
       Domain: vpc
   Nat1RT:
-    Type: 'AWS::EC2::RouteTable'
+    Type: AWS::EC2::RouteTable
     Condition: EnableNAT
     Properties:
       VpcId: !Ref VPC
@@ -270,7 +300,7 @@ Resources:
         - Key: Backup
           Value: Hora
   NatRule01:
-    Type: 'AWS::EC2::Route'
+    Type: AWS::EC2::Route
     Condition: EnableNAT
     DependsOn:
       - AttIGW
@@ -279,25 +309,25 @@ Resources:
       NatGatewayId: !Ref NATGW1
       RouteTableId: !Ref Nat1RT
   AssociateNat1:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: EnableNAT
     Properties:
       RouteTableId: !Ref Nat1RT
       SubnetId: !Ref SrvSub1
   AssociateNat2:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: EnableNAT
     Properties:
       RouteTableId: !Ref Nat1RT
       SubnetId: !Ref SrvSub2
   AssociateNat3:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: EnableNAT
     Properties:
       RouteTableId: !Ref Nat1RT
       SubnetId: !Ref DataSub1
   AssociateNat4:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: EnableNAT
     Properties:
       RouteTableId: !Ref Nat1RT
@@ -305,25 +335,25 @@ Resources:
 
 ## Internet Gateway ##
   IGW:
-    Type: 'AWS::EC2::InternetGateway'
+    Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
           Value: !Sub IGW-${Project}-${Environment}
   AttIGW:
-    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref IGW
   PubRT:
-    Type: 'AWS::EC2::RouteTable'
+    Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: RT-Public
   PublicRule:
-    Type: 'AWS::EC2::Route'
+    Type: AWS::EC2::Route
     DependsOn:
       - AttIGW
     Properties:
@@ -331,17 +361,17 @@ Resources:
       GatewayId: !Ref IGW
       RouteTableId: !Ref PubRT
   AssociatePub1IGW:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PubRT
       SubnetId: !Ref PubSub1
   AssociatePub2IGW:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PubRT
       SubnetId: !Ref PubSub2
   NodeInstanceRole:
-    Type: 'AWS::IAM::Role'
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -349,11 +379,11 @@ Resources:
           - Effect: Allow
             Principal:
               Service: ec2.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: sts:AssumeRole
       Path: /
       ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy'
-        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
   
 ## Enable VPC Flow ##
   LogGroupVPCFlowLogs: 
@@ -379,12 +409,12 @@ Outputs:
     Description: Ambiente establecido
     Value: !Ref Environment
     Export:
-      Name: !Sub '${AWS::StackName}-Environment'
+      Name: !Sub ${AWS::StackName}-Environment
   Project:
     Description: Ambiente establecido
     Value: !Ref Project
     Export:
-      Name: !Sub '${AWS::StackName}-Project'
+      Name: !Sub ${AWS::StackName}-Project
   VPCID:
     Description: VPC ID
     Value: !Ref VPC
@@ -399,12 +429,12 @@ Outputs:
     Description: ClusterControlPlaneSecurityGroup Output
     Value: !Ref ClusterControlPlaneSecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-ClusterControlPlaneSecurityGroup'
+      Name: !Sub ${AWS::StackName}-ClusterControlPlaneSecurityGroup
   SgrBastionO:
     Description: SgrBastion Output
     Value: !Ref SgrBastion
     Export:
-      Name: !Sub '${AWS::StackName}-SgrBastion'
+      Name: !Sub ${AWS::StackName}-SgrBastion
   PubSub1O:
     Description: PubSub1 Output
     Value: !Ref PubSub1
@@ -425,6 +455,11 @@ Outputs:
     Value: !Ref SrvSub2
     Export:
       Name: !Sub ${Project}-${Environment}-SrvSub2
+  SecurityGroupBackEnd:
+    Description: Security Group BackEnd
+    Value: !Ref SecurityGroupBackEnd
+    Export:
+      Name: !Sub ${Project}-${Environment}-SecurityGroupBackEnd
   NodeInstanceRole:
     Description: The node instance role
     Value: !GetAtt NodeInstanceRole.Arn
