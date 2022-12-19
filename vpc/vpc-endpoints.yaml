@@ -40,7 +40,7 @@ Resources:
       GroupId: !Ref SecurityGroupVPCEndpoints
       SourceSecurityGroupId:
         Fn::ImportValue:
-          !Sub ${Project}-${Environment}-SecurityGroupApp
+          !Sub ${Project}-${Environment}-SecurityGroupBackEnd
       IpProtocol: -1
 
 ## VPC Endpoints ##
@@ -57,6 +57,60 @@ Resources:
             !Sub ${Project}-${Environment}-SrvSub1
       SecurityGroupIds:
         - !Ref SecurityGroupVPCEndpoints
+  
+  CloudWatchLogs:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.logs
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - !Ref SecurityGroupVPCEndpoints
+  
+  ECRApi:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.ecr.api
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - !Ref SecurityGroupVPCEndpoints
+  
+  ECRDkr:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: com.amazonaws.us-east-1.ecr.dkr
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - !Ref SecurityGroupVPCEndpoints
+
+  S3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      ServiceName: com.amazonaws.us-east-1.s3
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      RouteTableIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-PrivateRouteTable
 
 Outputs:
   VPCEXRay:

@@ -52,11 +52,19 @@ Parameters:
       - false
       - true
   
+  CreateRegistryECR:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
 Conditions:
   CDiscoveryService: !Equals ["true", !Ref EnableDiscoveryService ]
+  requireECR: !Equals ["true", !Ref CreateRegistryECR ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
+    Condition: requireECR
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 
@@ -78,12 +86,12 @@ Resources:
           !Sub "${Project}-${Environment}-NameSpaceCloudMapId"
   
   TargetGroup:
-    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      HealthCheckIntervalSeconds: 30
+      HealthCheckIntervalSeconds: 10
       HealthCheckProtocol: TCP
-      HealthyThresholdCount: 10
-      UnhealthyThresholdCount: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
       TargetType: ip
       Name: !Sub "${Project}-${Environment}-${MicroServiceName}"
       Port: !Ref Port
@@ -96,13 +104,13 @@ Resources:
           !Sub "${Project}-${Environment}-VpcId"
 
   CloudWatchLogsGroup:
-    Type: 'AWS::Logs::LogGroup'
+    Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/kiire-ecs-master-data
+      LogGroupName: !Sub /ecs/${Project}-${Environment}-${MicroServiceName}
       RetentionInDays: 7
   
   Listener:
-    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - TargetGroupArn: !Ref TargetGroup
@@ -114,7 +122,7 @@ Resources:
       Protocol: TCP
 
   TaskDefinition:
-    Type: 'AWS::ECS::TaskDefinition'
+    Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub "${Project}-${Environment}-${MicroServiceName}"
       Cpu: !Ref CPU
@@ -129,11 +137,26 @@ Resources:
         Fn::ImportValue:
           !Sub "${Project}-${Environment}-ECSTaskRoleArn"
       ContainerDefinitions:
+        - Name: !Sub ${Project}-${Environment}-xray-daemon
+          Image: public.ecr.aws/xray/aws-xray-daemon:latest
+          # Cpu: 32
+          # MemoryReservation: 256
+          PortMappings:
+            - ContainerPort: 2000
+              Protocol: udp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
         - Name: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
           # EnvironmentFiles:
           #   - Type: s3
           #     Value: arn:aws:s3:::kiire-s3-ecs-env-files-dev/dev/kiire-ecs-env-file-dev.env
-          # Environment:
+          Environment:
+            - Name: PORT
+              Value: !Ref Port
           # Secrets:
           #   - Name: stage
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/STAGE
@@ -143,31 +166,38 @@ Resources:
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_URL_DEV
           #   - Name: DB_USERNAME
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_USERNAME_DEV
-          Image: !Sub
-            - ${repositoryUri}:latest
-            - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+          Image:
+            !If
+              - requireECR
+              - !Sub
+                  - ${repositoryUri}:latest
+                  - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+              - Fn::ImportValue:
+                  !Sub ${Project}-${Environment}-${MicroServiceName}-EcrUri
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref CloudWatchLogsGroup
-              awslogs-region: !Ref 'AWS::Region'
+              awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
+  
   ECSService:
-    Type: 'AWS::ECS::Service'
+    Type: AWS::ECS::Service
     DependsOn:
       - Listener
     Properties:
-      ServiceName: !Sub "${Project}-${Environment}-${MicroServiceName}"
+      ServiceName: !Sub ${Project}-${Environment}-${MicroServiceName}
       Cluster:
         Fn::ImportValue:
-          !Sub "${Project}-${Environment}-Cluster"
+          !Sub "${Project}-${Environment}-ClusterName"
       LaunchType: FARGATE
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
       DesiredCount: !Ref NumberTask
+      # HealthCheckGracePeriodSeconds: 60
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -176,9 +206,9 @@ Resources:
                 !Sub "${Project}-${Environment}-SecurityGroupBackEnd"
           Subnets:
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SubnetPrivateApp1"
+                !Sub "${Project}-${Environment}-SrvSub1"
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SubnetPrivateApp2"
+                !Sub "${Project}-${Environment}-SrvSub2"
       ServiceRegistries:
         !If
           - CDiscoveryService
@@ -190,12 +220,18 @@ Resources:
           ContainerPort: !Ref Port
           TargetGroupArn: !Ref TargetGroup
  
-# Outputs:
-#   ClusterName:
-#     Description: Cluster
-#     Value: !Ref Cluster01
-#   SecurityGroupServices:
-#     Description: "ID Security Group de Servicios de ECS"
-#     Value: !Ref FargateContainerSecurityGroup
-#     Export:
-#       Name: SecurityGroupServices
+Outputs:
+  ServiceName:
+    Description: Nombre del Servicio de ECS
+    Value: !GetAtt ECSService.Name
+    Export:
+      Name: !Sub ${Project}-${Environment}-${MicroServiceName}-ECSService
+  EcrRegistryRepositoryUri:
+    Description: Url de la imagen de ECR
+    Condition: requireECR
+    Value:
+      !Sub
+        - ${repositoryUri}:latest
+        - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+    Export:
+      Name: !Sub ${Project}-${Environment}-${MicroServiceName}-RepositoryUri

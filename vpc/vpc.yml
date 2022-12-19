@@ -169,8 +169,8 @@ Resources:
       Description: Ingress from VPC services
       GroupId: !Ref SecurityGroupBackEnd
       CidrIp: !Ref VPCCIDR
-      FromPort: 9080
-      ToPort: 9086
+      FromPort: 9000
+      ToPort: 9100
       IpProtocol: tcp
   EcsSecurityGroupIngressFromSelf:
     Type: AWS::EC2::SecurityGroupIngress
@@ -289,17 +289,7 @@ Resources:
     Condition: EnableNAT
     Properties:
       Domain: vpc
-  Nat1RT:
-    Type: AWS::EC2::RouteTable
-    Condition: EnableNAT
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub RT-NAT1-${Project}-${Environment}
-        - Key: Backup
-          Value: Hora
-  NatRule01:
+  NatRuleRoute:
     Type: AWS::EC2::Route
     Condition: EnableNAT
     DependsOn:
@@ -307,30 +297,35 @@ Resources:
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGW1
-      RouteTableId: !Ref Nat1RT
-  AssociateNat1:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: EnableNAT
+      RouteTableId: !Ref PrivateRouteTable
+  
+## Route Table ##
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
     Properties:
-      RouteTableId: !Ref Nat1RT
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-Private-RouteTable
+  AssociatePrivateRT1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref SrvSub1
-  AssociateNat2:
+  AssociatePrivateRT2:
     Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: EnableNAT
     Properties:
-      RouteTableId: !Ref Nat1RT
+      RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref SrvSub2
-  AssociateNat3:
+  AssociatePrivateRT3:
     Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: EnableNAT
     Properties:
-      RouteTableId: !Ref Nat1RT
+      RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref DataSub1
-  AssociateNat4:
+  AssociatePrivateRT4:
     Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: EnableNAT
     Properties:
-      RouteTableId: !Ref Nat1RT
+      RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref DataSub2
 
 ## Internet Gateway ##
@@ -339,7 +334,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub IGW-${Project}-${Environment}
+          Value: !Sub ${Project}-${Environment}-InternetGateway
   AttIGW:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -460,6 +455,11 @@ Outputs:
     Value: !Ref SecurityGroupBackEnd
     Export:
       Name: !Sub ${Project}-${Environment}-SecurityGroupBackEnd
+  PrivateRouteTable:
+    Description: Id Tabla de Rutas Privada
+    Value: !Ref PrivateRouteTable
+    Export:
+      Name: !Sub ${Project}-${Environment}-PrivateRouteTable
   NodeInstanceRole:
     Description: The node instance role
     Value: !GetAtt NodeInstanceRole.Arn

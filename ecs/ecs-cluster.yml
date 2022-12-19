@@ -45,12 +45,14 @@ Parameters:
       - false
 Conditions:  
   isPublic: !Equals [ true, !Ref EnablePublicIp ]
+  isPrivate: !Equals [ false, !Ref EnablePublicIp ]
   CreatePrivateDNS: !Equals [ true, !Ref RequirePrivateDNS ]
   CreateLoadBalancer: !Equals [ true, !Ref RequireLoadBalancer ]
+  isProduction: !Equals [ pdn, !Ref Environment ]
   CEnableVpcLink:
     !And
       - !Condition CreateLoadBalancer
-      - !Condition isPublic
+      - !Condition isPrivate
       - !Equals [ true, !Ref EnableVpcLink]
 Resources:
   Cluster:
@@ -72,7 +74,7 @@ Resources:
             !Sub "${Project}-${Environment}-VpcId"
   
   NetworkLoadBalancer:
-    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Condition: CreateLoadBalancer
     Properties:
       Name: !Sub ${Project}-${Environment}-${TypeLoadBalancer}
@@ -81,17 +83,29 @@ Resources:
           Value: true
       Scheme: !If [ isPublic, internet-facing, internal ]
       Subnets:
-        - Fn::ImportValue:
-            !Sub "${Project}-${Environment}-SubnetPrivateApp1"
-        - Fn::ImportValue:
-            !Sub "${Project}-${Environment}-SubnetPrivateApp2"
+        !If 
+          - isPublic
+          - - Fn::ImportValue:
+                !Sub ${Project}-${Environment}-PubSub1
+            - !If
+                - isProduction
+                - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-PubSub2
+                - !Ref AWS::NoValue
+          - - Fn::ImportValue:
+                !Sub ${Project}-${Environment}-SrvSub1
+            - !If
+                - isProduction
+                - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-SrvSub2
+                - !Ref AWS::NoValue
       Tags:
         - Key: Name
           Value: !Sub ${Project}-${Environment}-${TypeLoadBalancer}
       Type: !Ref TypeLoadBalancer
   
   VpcLink:
-    Type: 'AWS::ApiGateway::VpcLink'
+    Type: AWS::ApiGateway::VpcLink
     Condition: CEnableVpcLink
     Properties:
       Description: !Sub VPC link connects to internal ${Project}-${Environment}-${TypeLoadBalancer}
@@ -105,6 +119,12 @@ Outputs:
     Value: !Ref Cluster
     Export:
       Name: !Sub ${Project}-${Environment}-ClusterName
+  LoadBalancer:
+    Condition: CreateLoadBalancer
+    Description: ARN del Load Balancer
+    Value: !Ref NetworkLoadBalancer
+    Export:
+      Name: !Sub ${Project}-${Environment}-NetWorkLoadBalancerArn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
@@ -134,6 +154,6 @@ Metadata:
       TypeLoadBalancer: 
         default: Tipo de Balanceador
       EnablePublicIp: 
-        default: Requiere IP Pública
+        default: Requiere IP Publica
       EnableVpcLink: 
         default: Requiere VPC Link
