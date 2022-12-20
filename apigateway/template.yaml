@@ -57,10 +57,12 @@ Parameters:
     AllowedValues:
       - true
       - false
-  DummyIP:
+  DeployAPI:
     Type: String
-    Default: '1.1.1.1'
-    AllowedPattern: ^(((\d){1,3})\.((\d){1,3})\.((\d){1,3})\.((\d){1,3}))$
+    Default: false
+    AllowedValues:
+      - true
+      - false
 Conditions:
   EnableLogs: !Equals [ 1, !Ref AllowLogs ]
   SinDominio: !Equals [ "NO", !Ref DomainBack ]
@@ -69,6 +71,7 @@ Conditions:
   SinCustomDomain: !Not [ Condition: SinCertificadoNiDominio ]
   isDummyAuth: !Equals [ true, !Ref DummyAuthorizer ]
   EnableXRay: !Equals [ true, !Ref TracingXRay ]
+  requireDeploy: !Equals [ true, !Ref DeployAPI ]
 Resources:
   
   LambdaAuthorizerRole:
@@ -138,8 +141,6 @@ Resources:
       Role: !GetAtt LambdaBackendRole.Arn
       Runtime: nodejs16.x
       Timeout: 128
-      TracingConfig:
-          Mode: !If [ EnableXRay, Active, PassThrough ]
       # VpcConfig:
       #   SubnetIds:
       #     - Fn::ImportValue:
@@ -149,6 +150,8 @@ Resources:
       #   SecurityGroupIds:
       #     - Fn::ImportValue:
       #         !Sub ${Project}-${Environment}-SecurityGroupApp
+      TracingConfig:
+        Mode: !If [ EnableXRay, Active, PassThrough ]
   LambdaBackendPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -339,7 +342,7 @@ Resources:
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
-          /api-dummy:
+          /api-dummy-http:
             get:
               produces:
               - application/json
@@ -350,11 +353,59 @@ Resources:
                     $ref: "#/definitions/Empty"
               x-amazon-apigateway-integration:
                 httpMethod: GET
-                uri: !Sub http://${DummyIP}:9000/api/dummy
+                uri: http://${stageVariables.nlb}:9000/api/dummy
                 responses:
                   default:
                     statusCode: "200"
                 passthroughBehavior: when_no_match
+                type: http
+          /api-dummy-vpc-link-proxy:
+            get:
+              produces:
+              - application/json
+              responses:
+                "200":
+                  description: 200 response
+                  schema:
+                    $ref: "#/definitions/Empty"
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-VpcLinkId
+                httpMethod: GET
+                uri: http://${stageVariables.nlb}:9000/api/dummy
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                type: http_proxy
+          /api-dummy-vpc-link:
+            get:
+              parameters:
+              - name: "test_header"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              produces:
+              - application/json
+              responses:
+                "200":
+                  description: 200 response
+                  schema:
+                    $ref: "#/definitions/Empty"
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-VpcLinkId
+                httpMethod: GET
+                uri: http://${stageVariables.nlb}:9000/api/dummy
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
                 type: http
         components:
           schemas:
@@ -396,6 +447,7 @@ Resources:
             validateRequestBody: true
   Deployment:
     Type: Custom::ApiDeployment
+    Condition: requireDeploy
     Properties:
       ServiceToken:
         Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
@@ -404,13 +456,16 @@ Resources:
       DeploymentTime: !Ref DeploymentTime
   Stage:
     Type: AWS::ApiGateway::Stage
+    Condition: requireDeploy
     Properties:
       DeploymentId: !Ref Deployment
       RestApiId: !Ref ApiGateway
       Description: Default Stage
       StageName: !Ref Environment
       Variables:
-        host: test
+        nlb:
+          Fn::ImportValue:
+            !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns 
       # AccessLogSetting:
       #   DestinationArn:
       #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*

@@ -59,8 +59,9 @@ Parameters:
       - false
       - true
 Conditions:
-  CDiscoveryService: !Equals ["true", !Ref EnableDiscoveryService ]
-  requireECR: !Equals ["true", !Ref CreateRegistryECR ]
+  CDiscoveryService: !Equals [ "true", !Ref EnableDiscoveryService ]
+  requireECR: !Equals [ "true", !Ref CreateRegistryECR ]
+  isProduction: !Equals [ pdn, !Ref Environment ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
@@ -88,7 +89,8 @@ Resources:
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      HealthCheckIntervalSeconds: 10
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
       HealthCheckProtocol: TCP
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
@@ -197,7 +199,7 @@ Resources:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
       DesiredCount: !Ref NumberTask
-      # HealthCheckGracePeriodSeconds: 60
+      HealthCheckGracePeriodSeconds: 10
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -206,9 +208,12 @@ Resources:
                 !Sub "${Project}-${Environment}-SecurityGroupBackEnd"
           Subnets:
             - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SrvSub1"
-            - Fn::ImportValue:
-                !Sub "${Project}-${Environment}-SrvSub2"
+                !Sub ${Project}-${Environment}-SrvSub1
+            - !If
+                - isProduction
+                - Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-SrvSub2
+                - !Ref AWS::NoValue
       ServiceRegistries:
         !If
           - CDiscoveryService

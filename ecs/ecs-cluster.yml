@@ -49,7 +49,7 @@ Conditions:
   CreatePrivateDNS: !Equals [ true, !Ref RequirePrivateDNS ]
   CreateLoadBalancer: !Equals [ true, !Ref RequireLoadBalancer ]
   isProduction: !Equals [ pdn, !Ref Environment ]
-  CEnableVpcLink:
+  requireVpcLink:
     !And
       - !Condition CreateLoadBalancer
       - !Condition isPrivate
@@ -106,7 +106,7 @@ Resources:
   
   VpcLink:
     Type: AWS::ApiGateway::VpcLink
-    Condition: CEnableVpcLink
+    Condition: requireVpcLink
     Properties:
       Description: !Sub VPC link connects to internal ${Project}-${Environment}-${TypeLoadBalancer}
       Name: !Sub ${Project}-${Environment}-${TypeLoadBalancer}
@@ -125,6 +125,21 @@ Outputs:
     Value: !Ref NetworkLoadBalancer
     Export:
       Name: !Sub ${Project}-${Environment}-NetWorkLoadBalancerArn
+  LoadBalancerDomainName:
+    Condition: CreateLoadBalancer
+    Description: Domain Name del Load Balancer
+    Value: !GetAtt NetworkLoadBalancer.DNSName
+    Export:
+      Name: !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns
+  VpcLinkId:
+    Condition: requireVpcLink
+    Description: Id de VPC Link
+    Value: !Ref VpcLink
+    Export:
+      Name: !Sub ${Project}-${Environment}-VpcLinkId
+
+      
+
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
