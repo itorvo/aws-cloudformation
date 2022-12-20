@@ -159,6 +159,8 @@ Resources:
           Environment:
             - Name: PORT
               Value: !Ref Port
+            - Name: TableName
+              Value: Country
           # Secrets:
           #   - Name: stage
           #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/STAGE

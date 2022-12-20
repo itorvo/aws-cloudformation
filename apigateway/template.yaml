@@ -407,6 +407,27 @@ Resources:
                 passthroughBehavior: when_no_match
                 connectionType: VPC_LINK
                 type: http
+          /api/country:
+            get:
+              produces:
+              - application/json
+              responses:
+                "200":
+                  description: 200 response
+                  schema:
+                    $ref: "#/definitions/Empty"
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-VpcLinkId
+                httpMethod: GET
+                uri: http://${stageVariables.nlb}:9000/api/country
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                type: http_proxy
         components:
           schemas:
             Empty:
@@ -519,6 +540,7 @@ Metadata:
           - DomainBack
           - CertificateKey
           - TracingXRay
+          - DeployAPI
           - DeploymentTime
       - Label: 
           default: Datos del Funciones Lambda
@@ -552,3 +574,5 @@ Metadata:
         default: Activar monitoreo con AWS X-Ray
       ApiName: 
         default: Nombre del API Gateway
+      DeployAPI:
+        deafault: Desplegar API Gateway
