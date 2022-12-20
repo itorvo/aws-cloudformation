@@ -104,6 +104,7 @@ Resources:
       Runtime: python3.9
       Timeout: 128
   LambdaAuthorizerPermission:
+    Condition: requireDeploy
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
@@ -154,6 +155,7 @@ Resources:
         Mode: !If [ EnableXRay, Active, PassThrough ]
   LambdaBackendPermission:
     Type: AWS::Lambda::Permission
+    Condition: requireDeploy
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !Ref LambdaBackend
@@ -161,6 +163,7 @@ Resources:
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*
   ApiGateway:
     Type: AWS::ApiGateway::RestApi
+    Condition: requireDeploy
     Properties:
       Description: !Ref ApiName
       Name: !Sub ${Project}-${Environment}-${ApiName}
@@ -500,26 +503,27 @@ Resources:
       #     ThrottlingBurstLimit: 5000
       #     ThrottlingRateLimit: 10000
       TracingEnabled: !Ref TracingXRay
-  APICustomDomainName:
-    Type: AWS::ApiGateway::DomainName
-    Condition: SinCustomDomain
-    Properties:
-      RegionalCertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
-      DomainName: !Ref DomainBack
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
-      SecurityPolicy: TLS_1_2
-  MappingAPI:
-    Type: AWS::ApiGateway::BasePathMapping
-    Condition: SinCustomDomain
-    Properties: 
-      DomainName: !Ref APICustomDomainName
-      RestApiId: !Ref ApiGateway
-      Stage: !Ref Environment
+  # APICustomDomainName:
+  #   Type: AWS::ApiGateway::DomainName
+  #   Condition: SinCustomDomain
+  #   Properties:
+  #     RegionalCertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
+  #     DomainName: !Ref DomainBack
+  #     EndpointConfiguration:
+  #       Types:
+  #         - REGIONAL
+  #     SecurityPolicy: TLS_1_2
+  # MappingAPI:
+  #   Type: AWS::ApiGateway::BasePathMapping
+  #   Condition: SinCustomDomain
+  #   Properties: 
+  #     DomainName: !Ref APICustomDomainName
+  #     RestApiId: !Ref ApiGateway
+  #     Stage: !Ref Environment
 
 Outputs:
   ApiGateway:
+    Condition: requireDeploy
     Description: ApiGateway id generated
     Value: !Ref ApiGateway
     Export:
@@ -575,4 +579,4 @@ Metadata:
       ApiName: 
         default: Nombre del API Gateway
       DeployAPI:
-        deafault: Desplegar API Gateway
+        default: Desplegar API Gateway
