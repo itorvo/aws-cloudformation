@@ -57,6 +57,12 @@ Parameters:
     AllowedValues:
       - true
       - false
+  DeployAPI:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
 Conditions:
   EnableLogs: !Equals [ 1, !Ref AllowLogs ]
   SinDominio: !Equals [ "NO", !Ref DomainBack ]
@@ -65,6 +71,7 @@ Conditions:
   SinCustomDomain: !Not [ Condition: SinCertificadoNiDominio ]
   isDummyAuth: !Equals [ true, !Ref DummyAuthorizer ]
   EnableXRay: !Equals [ true, !Ref TracingXRay ]
+  requireDeploy: !Equals [ true, !Ref DeployAPI ]
 Resources:
   
   LambdaAuthorizerRole:
@@ -111,6 +118,9 @@ Resources:
           Fn::ImportValue: !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
         S3Key: !Ref S3KeyFileLambdaBackEnd
       Description: Lambda prueba deploy
+      Environment:
+        Variables:
+          TableName: Country
       FunctionName: !Sub ${Project}-${Environment}-lambda-backend
       Handler: index.handler
       MemorySize: 128
@@ -364,27 +374,27 @@ Resources:
           #       passthroughBehavior: when_no_match
           #       connectionType: VPC_LINK
           #       type: http
-          /api/country:
-            get:
-              produces:
-              - application/json
-              responses:
-                "200":
-                  description: 200 response
-                  schema:
-                    $ref: "#/definitions/Empty"
-              x-amazon-apigateway-integration:
-                connectionId:
-                  Fn::ImportValue:
-                    !Sub ${Project}-${Environment}-VpcLinkId
-                httpMethod: GET
-                uri: http://${stageVariables.nlb}:9000/api/country
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: when_no_match
-                connectionType: VPC_LINK
-                type: http_proxy
+          # /api/country:
+          #   get:
+          #     produces:
+          #     - application/json
+          #     responses:
+          #       "200":
+          #         description: 200 response
+          #         schema:
+          #           $ref: "#/definitions/Empty"
+          #     x-amazon-apigateway-integration:
+          #       connectionId:
+          #         Fn::ImportValue:
+          #           !Sub ${Project}-${Environment}-VpcLinkId
+          #       httpMethod: GET
+          #       uri: http://${stageVariables.nlb}:9000/api/country
+          #       responses:
+          #         default:
+          #           statusCode: "200"
+          #       passthroughBehavior: when_no_match
+          #       connectionType: VPC_LINK
+          #       type: http_proxy
         components:
           schemas:
             Empty:
@@ -425,6 +435,7 @@ Resources:
             validateRequestBody: true
   Deployment:
     Type: Custom::ApiDeployment
+    Condition: requireDeploy
     Properties:
       ServiceToken:
         Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
@@ -433,6 +444,7 @@ Resources:
       DeploymentTime: !Ref DeploymentTime
   Stage:
     Type: AWS::ApiGateway::Stage
+    Condition: requireDeploy
     Properties:
       DeploymentId: !Ref Deployment
       RestApiId: !Ref ApiGateway
@@ -496,6 +508,7 @@ Metadata:
           - CertificateKey
           - TracingXRay
           - DeploymentTime
+          - DeployAPI
       - Label: 
           default: Datos del Funciones Lambda
         Parameters: 
@@ -528,3 +541,5 @@ Metadata:
         default: Activar monitoreo con AWS X-Ray
       ApiName: 
         default: Nombre del API Gateway
+      DeployAPI:
+        default: Generar Etapa del API

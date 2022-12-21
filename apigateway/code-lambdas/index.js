@@ -10,8 +10,15 @@ AWSXRay.captureHTTPsGlobal(https);
 
 exports.handler = async (event, context, callback) => {
   try {
-    const list_pokemon = await getListPokemons(event.queryStringParameters.limit, event.queryStringParameters.page)
-    return createResponse(200, list_pokemon);
+    let data = event.headers.data;
+    if (data === '1') {
+      const pokemons = await getListPokemons(event.queryStringParameters.limit, event.queryStringParameters.page)
+      return createResponse(200, pokemons);
+    }
+    else{
+      const countries = await getAllCountries();
+      return createResponse(200, countries)
+    }
   }
   catch (ex) {
     return createResponse(500, null);
@@ -51,4 +58,29 @@ async function getListPokemons(limit, page) {
   subsegment.close();
 
   return data;
+}
+
+async function getAllCountries() {
+
+  const AWS = AWSXRay.captureAWS(require('aws-sdk'));
+  let dynamoDbClient = new AWS.DynamoDB.DocumentClient();
+
+  const segment = AWSXRay.getSegment();
+  const subsegment = segment.addNewSubsegment('GetAllCountries');
+
+  const params = {
+    TableName: process.env.TableName
+  };
+
+  let items = await dynamoDbClient.scan(params).promise().then(function (data) {
+    console.log(data)
+    return data.Items;
+  })
+    .catch(function (err) {
+      return null
+    });
+
+  subsegment.close();
+
+  return items
 }
