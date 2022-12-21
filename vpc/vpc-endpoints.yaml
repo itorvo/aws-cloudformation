@@ -11,10 +11,19 @@ Parameters:
     Type: String
     Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
+  CreateEndPoints:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+Conditions:
+  createResources: !Equals [ true, !Ref CreateEndPoints ]
 Resources:
 ## VPC Endpoints ##
   XRay:
     Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
     Properties:
       PrivateDnsEnabled: true
       VpcEndpointType: Interface
@@ -31,6 +40,7 @@ Resources:
   
   CloudWatchLogs:
     Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
     Properties:
       PrivateDnsEnabled: true
       VpcEndpointType: Interface
@@ -47,6 +57,7 @@ Resources:
   
   EcrApi:
     Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
     Properties:
       PrivateDnsEnabled: true
       VpcEndpointType: Interface
@@ -63,6 +74,7 @@ Resources:
   
   EcrDkr:
     Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
     Properties:
       PrivateDnsEnabled: true
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
@@ -79,6 +91,7 @@ Resources:
 
   S3:
     Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
     Properties:
       PrivateDnsEnabled: false
       VpcEndpointType: Gateway
@@ -90,8 +103,22 @@ Resources:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-PrivateRouteTable
 
+  DynamoDb:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: createResources
+    Properties:
+      PrivateDnsEnabled: false
+      VpcEndpointType: Gateway
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      RouteTableIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-PrivateRouteTable
 Outputs:
   VPCEXRay:
+    Condition: createResources
     Description: VPC Endpoint X-Ray
     Value: !Ref XRay
     Export:
@@ -104,8 +131,11 @@ Metadata:
         Parameters: 
           - Project
           - Environment
+          - CreateEndPoints
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
       Environment: 
         default: Nombre del Ambiente
+      CreateEndPoints: 
+        default: Crear Endpoints

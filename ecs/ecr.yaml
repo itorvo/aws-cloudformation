@@ -17,11 +17,22 @@ Parameters:
     Default: dummy
     AllowedPattern: ^([a-z]|[0-9])*$
 Resources:
+  EcrXRay:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub ${Project}-${Environment}-x-ray
   EcrRegistry1:
     Type: AWS::ECR::Repository
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 Outputs:
+  EcrXRayUri:
+    Value:
+      !Sub
+        - ${repositoryUri}:latest
+        - repositoryUri: !GetAtt EcrXRay.RepositoryUri
+    Export:
+      Name: !Sub ${Project}-${Environment}-EcrXRayUri
   EcrRegistryUri1:
     Value:
       !Sub

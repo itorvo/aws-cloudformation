@@ -269,7 +269,7 @@ Resources:
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
-          /api-retiros-public:
+          /api/pokemon:
             get:
               parameters:
               - name: "limit"
@@ -335,71 +335,50 @@ Resources:
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
-          /api-dummy-http:
-            get:
-              produces:
-              - application/json
-              responses:
-                "200":
-                  description: 200 response
-                  schema:
-                    $ref: "#/definitions/Empty"
-              x-amazon-apigateway-integration:
-                httpMethod: GET
-                uri: http://${stageVariables.nlb}:9000/api/dummy
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: when_no_match
-                type: http
-          /api-dummy-vpc-link-proxy:
-            get:
-              produces:
-              - application/json
-              responses:
-                "200":
-                  description: 200 response
-                  schema:
-                    $ref: "#/definitions/Empty"
-              x-amazon-apigateway-integration:
-                connectionId:
-                  Fn::ImportValue:
-                    !Sub ${Project}-${Environment}-VpcLinkId
-                httpMethod: GET
-                uri: http://${stageVariables.nlb}:9000/api/dummy
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: when_no_match
-                connectionType: VPC_LINK
-                type: http_proxy
-          /api-dummy-vpc-link:
-            get:
-              parameters:
-              - name: "test_header"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              produces:
-              - application/json
-              responses:
-                "200":
-                  description: 200 response
-                  schema:
-                    $ref: "#/definitions/Empty"
-              x-amazon-apigateway-integration:
-                connectionId:
-                  Fn::ImportValue:
-                    !Sub ${Project}-${Environment}-VpcLinkId
-                httpMethod: GET
-                uri: http://${stageVariables.nlb}:9000/api/dummy
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: when_no_match
-                connectionType: VPC_LINK
-                type: http
+          # /api-dummy-http:
+          #   get:
+          #     produces:
+          #     - application/json
+          #     responses:
+          #       "200":
+          #         description: 200 response
+          #         schema:
+          #           $ref: "#/definitions/Empty"
+          #     x-amazon-apigateway-integration:
+          #       httpMethod: GET
+          #       uri: http://${stageVariables.nlb}:9000/api/dummy
+          #       responses:
+          #         default:
+          #           statusCode: "200"
+          #       passthroughBehavior: when_no_match
+          #       type: http
+          # /api-dummy-vpc-link:
+          #   get:
+          #     parameters:
+          #     - name: "test_header"
+          #       in: "header"
+          #       required: false
+          #       schema:
+          #         type: "string"
+          #     produces:
+          #     - application/json
+          #     responses:
+          #       "200":
+          #         description: 200 response
+          #         schema:
+          #           $ref: "#/definitions/Empty"
+          #     x-amazon-apigateway-integration:
+          #       connectionId:
+          #         Fn::ImportValue:
+          #           !Sub ${Project}-${Environment}-VpcLinkId
+          #       httpMethod: GET
+          #       uri: http://${stageVariables.nlb}:9000/api/dummy
+          #       responses:
+          #         default:
+          #           statusCode: "200"
+          #       passthroughBehavior: when_no_match
+          #       connectionType: VPC_LINK
+          #       type: http
           /api/country:
             get:
               produces:

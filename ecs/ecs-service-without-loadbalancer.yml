@@ -113,7 +113,9 @@ Resources:
           !Sub ${Project}-${Environment}-ECSTaskRoleArn
       ContainerDefinitions:
         - Name: !Sub ${Project}-${Environment}-xray-daemon
-          Image: public.ecr.aws/xray/aws-xray-daemon:latest
+          Image:
+            Fn::ImportValue:
+              !Sub ${Project}-${Environment}-EcrXRayUri
           # Cpu: 32
           # MemoryReservation: 256
           PortMappings:
