@@ -12,43 +12,13 @@ Parameters:
     Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
 Resources:
-## Grupo de Seguridad ##
-  SecurityGroupVPCEndpoints:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
-      GroupDescription: Security Group VPC Endpoints
-      Tags:
-        - Key: Name
-          Value: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
-      VpcId:
-        Fn::ImportValue:
-          !Sub ${Project}-${Environment}-VpcId
-  
-  SecurityGroupIngressFromSelf:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Ingress from the same security group
-      GroupId: !Ref SecurityGroupVPCEndpoints
-      IpProtocol: -1
-      SourceSecurityGroupId: !Ref SecurityGroupVPCEndpoints
-  
-  SecurityGroupIngressFromBackEnd:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Ingress from Security Group BackEnd
-      GroupId: !Ref SecurityGroupVPCEndpoints
-      SourceSecurityGroupId:
-        Fn::ImportValue:
-          !Sub ${Project}-${Environment}-SecurityGroupBackEnd
-      IpProtocol: -1
-
 ## VPC Endpoints ##
   XRay:
     Type: AWS::EC2::VPCEndpoint
     Properties:
+      PrivateDnsEnabled: true
       VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.xray
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.xray
       VpcId:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-VpcId
@@ -56,13 +26,15 @@ Resources:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-SrvSub1
       SecurityGroupIds:
-        - !Ref SecurityGroupVPCEndpoints
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
   
   CloudWatchLogs:
     Type: AWS::EC2::VPCEndpoint
     Properties:
+      PrivateDnsEnabled: true
       VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.logs
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
       VpcId:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-VpcId
@@ -70,13 +42,15 @@ Resources:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-SrvSub1
       SecurityGroupIds:
-        - !Ref SecurityGroupVPCEndpoints
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
   
-  ECRApi:
+  EcrApi:
     Type: AWS::EC2::VPCEndpoint
     Properties:
+      PrivateDnsEnabled: true
       VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.ecr.api
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
       VpcId:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-VpcId
@@ -84,13 +58,15 @@ Resources:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-SrvSub1
       SecurityGroupIds:
-        - !Ref SecurityGroupVPCEndpoints
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
   
-  ECRDkr:
+  EcrDkr:
     Type: AWS::EC2::VPCEndpoint
     Properties:
+      PrivateDnsEnabled: true
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
       VpcEndpointType: Interface
-      ServiceName: com.amazonaws.us-east-1.ecr.dkr
       VpcId:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-VpcId
@@ -98,13 +74,15 @@ Resources:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-SrvSub1
       SecurityGroupIds:
-        - !Ref SecurityGroupVPCEndpoints
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
 
   S3:
     Type: AWS::EC2::VPCEndpoint
     Properties:
+      PrivateDnsEnabled: false
       VpcEndpointType: Gateway
-      ServiceName: com.amazonaws.us-east-1.s3
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
       VpcId:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-VpcId
@@ -118,11 +96,6 @@ Outputs:
     Value: !Ref XRay
     Export:
       Name: !Sub ${Project}-${Environment}-VPCE-X-Ray
-  Project:
-    Description: Ambiente establecido
-    Value: !Ref Project
-    Export:
-      Name: !Sub ${AWS::StackName}-Project
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

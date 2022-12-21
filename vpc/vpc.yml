@@ -81,83 +81,14 @@ Resources:
           Value: !Sub VPC-${Project}-${Environment}
 
 ## Grupos de Seguridad ##
-  ClusterControlPlaneSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub SG-SRV-${Project}-${Environment}
-      GroupDescription: SRV Net Sgr
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          Description: Outbound traffic (Ingresar cidr para trafico de salida)
-          FromPort: 0
-          ToPort: 65535
-          IpProtocol: tcp
-      SecurityGroupIngress:
-        - CidrIp: !Ref VPCCIDR
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 0
-          ToPort: 1024
-          IpProtocol: tcp
-        - CidrIp: !Ref VPCCIDR
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 1024
-          ToPort: 65535
-          IpProtocol: tcp
-      Tags:
-        - Key: Name
-          Value: !Sub SG-SRV-${Project}-${Environment}
-      VpcId: !Ref VPC
-  SgrBastion:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub SG-BAS-${Project}-${Environment}
-      GroupDescription: SSH Bastion Sgr
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          Description: Outbound traffic (Ingresar cidr para trafico de salida)
-          FromPort: 0
-          ToPort: 65535
-          IpProtocol: tcp
-      SecurityGroupIngress:
-        - CidrIp: 35.170.219.222/32
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 22
-          ToPort: 22
-          IpProtocol: tcp
-      Tags:
-        - Key: Name
-          Value: !Sub SG-BAS-${Project}-${Environment}
-      VpcId: !Ref VPC
-  SgrData:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub SG-DataBase-${Project}-${Environment}
-      GroupDescription: DataBase Sgr
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          Description: Outbound traffic (Ingresar cidr para trafico de salida)
-          FromPort: 0
-          ToPort: 65535
-          IpProtocol: tcp
-      SecurityGroupIngress:
-        - CidrIp: !Ref VPCCIDR
-          Description: Inbound traffic (Ingresar cidr para trafico de entrada)
-          FromPort: 5432
-          ToPort: 5432
-          IpProtocol: tcp
-      Tags:
-        - Key: Name
-          Value: !Sub SG-DataBase-${Project}-${Environment}
-      VpcId: !Ref VPC
-  
   SecurityGroupBackEnd:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${Project}-${Environment}-security-group-backend
+      GroupName: !Sub ${Project}-${Environment}-sgr-backend
       GroupDescription: Access to the Fargate containers
       Tags:
         - Key: Name
-          Value: !Sub ${Project}-${Environment}-security-group-backend
+          Value: !Sub ${Project}-${Environment}-sgr-backend
         - Key: Project
           Value: !Sub ${Project}
         - Key: Environment
@@ -179,6 +110,30 @@ Resources:
       GroupId: !Ref SecurityGroupBackEnd
       IpProtocol: -1
       SourceSecurityGroupId: !Ref SecurityGroupBackEnd
+
+  SecurityGroupVPCEndpoints:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
+      GroupDescription: Security Group VPC Endpoints
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-sgr-vpc-endpoints
+      VpcId: !Ref VPC
+  SecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the same security group
+      GroupId: !Ref SecurityGroupVPCEndpoints
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SecurityGroupVPCEndpoints
+  SecurityGroupIngressFromBackEnd:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from Security Group BackEnd
+      GroupId: !Ref SecurityGroupVPCEndpoints
+      SourceSecurityGroupId: !Ref SecurityGroupBackEnd
+      IpProtocol: -1
 
 ## Subnet Publicas ##
   PubSub1:
@@ -420,16 +375,6 @@ Outputs:
     Value: !Ref VPCCIDR
     Export:
       Name: !Sub ${Project}-${Environment}-Vpc-CI-DR
-  ClusterControlPlaneSecurityGroupO:
-    Description: ClusterControlPlaneSecurityGroup Output
-    Value: !Ref ClusterControlPlaneSecurityGroup
-    Export:
-      Name: !Sub ${AWS::StackName}-ClusterControlPlaneSecurityGroup
-  SgrBastionO:
-    Description: SgrBastion Output
-    Value: !Ref SgrBastion
-    Export:
-      Name: !Sub ${AWS::StackName}-SgrBastion
   PubSub1O:
     Description: PubSub1 Output
     Value: !Ref PubSub1
@@ -455,6 +400,11 @@ Outputs:
     Value: !Ref SecurityGroupBackEnd
     Export:
       Name: !Sub ${Project}-${Environment}-SecurityGroupBackEnd
+  SecurityGroupVpcEndpoints:
+    Description: Security Group VPC Endpoints
+    Value: !Ref SecurityGroupVPCEndpoints
+    Export:
+      Name: !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
   PrivateRouteTable:
     Description: Id Tabla de Rutas Privada
     Value: !Ref PrivateRouteTable

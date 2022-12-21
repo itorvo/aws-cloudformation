@@ -56,12 +56,20 @@ Parameters:
     Type: String
     Default: 1
     AllowedPattern: ^[1|3|5|7|14|30]?
+  CreateRegistryECR:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
 Conditions:
   CDiscoveryService: !Equals [ "true", !Ref EnableDiscoveryService ]
   isPublic: !Equals [ ENABLED, !Ref PublicIp ]
+  requireECR: !Equals [ "true", !Ref CreateRegistryECR ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
+    Condition: requireECR
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 
@@ -137,9 +145,16 @@ Resources:
           Environment:
             - Name: PORT
               Value: !Ref Port
-          Image: !Sub
-            - ${repositoryUri}:latest
-            - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+            - Name: TableName
+              Value: Country
+          Image:
+            !If
+              - requireECR
+              - !Sub
+                  - ${repositoryUri}:latest
+                  - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+              - Fn::ImportValue:
+                  !Sub ${Project}-${Environment}-${MicroServiceName}-EcrUri
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
@@ -203,6 +218,7 @@ Metadata:
           - NumberTask
           - DayRetentionLogs
           - PublicIp
+          - CreateRegistryECR
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
@@ -224,3 +240,5 @@ Metadata:
         default: Asignar IP Publica
       DayRetentionLogs:
         default: Cantidad de dias de almacenamiento de logs
+      CreateRegistryECR:
+        default: Crear Registro de ECR
