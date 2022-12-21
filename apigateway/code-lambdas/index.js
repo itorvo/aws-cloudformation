@@ -1,9 +1,10 @@
-var axios = require('axios');
+let axios = require('axios');
 
 const AWSXRay = require('aws-xray-sdk-core')
 
-var http = require('http');
-var https = require('https');
+let http = require('http');
+let https = require('https');
+
 AWSXRay.captureHTTPsGlobal(http);
 AWSXRay.captureHTTPsGlobal(https);
 
@@ -18,7 +19,7 @@ exports.handler = async (event, context, callback) => {
 };
 
 function createResponse(statusCode, body) {
-  return response = {
+  return {
     statusCode: statusCode,
     body: JSON.stringify(body),
     headers: {
@@ -30,11 +31,7 @@ function createResponse(statusCode, body) {
 }
 
 async function getListPokemons(limit, page) {
-  var config = {
-    method: 'get',
-    url: `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${page}`,
-    headers: {}
-  };
+  const url = `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${page}`;
 
   const instance = axios.create({
     httpAgent: new http.Agent(),
@@ -44,7 +41,7 @@ async function getListPokemons(limit, page) {
   const segment = AWSXRay.getSegment();
   const subsegment = segment.addNewSubsegment('ListPokemon');
 
-  let data = await instance.get(config.url).then(function (response) {
+  let data = await instance.get(url).then(function (response) {
     return response.data
   })
     .catch(function (error) {
