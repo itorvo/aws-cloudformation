@@ -143,7 +143,10 @@ Resources:
         - Name: !Sub ${Project}-${Environment}-${MicroServiceName}-container
           # EnvironmentFiles:
           #   - Type: s3
-          #     Value: arn:aws:s3:::kiire-s3-ecs-env-files-dev/dev/kiire-ecs-env-file-dev.env
+          #     Value: ${ArnBucket}/keyFile
+          # Secrets:
+          #   - Name: stage
+          #     ValueFrom: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}
           Environment:
             - Name: PORT
               Value: !Ref Port
