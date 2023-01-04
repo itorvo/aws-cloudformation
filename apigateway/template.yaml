@@ -4,12 +4,6 @@ Parameters:
   DeploymentTime:
     Type: String
     Default: 0
-  AllowLogs:
-    Type: String
-    Default: 0
-    AllowedValues:
-      - 1
-      - 0
   Environment:
     Type: String
     AllowedValues:
@@ -64,7 +58,6 @@ Parameters:
       - true
       - false
 Conditions:
-  EnableLogs: !Equals [ 1, !Ref AllowLogs ]
   SinDominio: !Equals [ "NO", !Ref DomainBack ]
   SinCertificado: !Equals [ "NO", !Ref CertificateKey ]
   SinCertificadoNiDominio: !Or [ Condition: SinDominio, Condition: SinCertificado ]
@@ -87,7 +80,8 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
-      ManagedPolicyArns: !If [ EnableLogs, arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole, !Ref AWS::NoValue ]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       RoleName: !Sub ${Project}-${Environment}-role-lambda-authorizer
   LambdaAuthorizer:
     Type: AWS::Lambda::Function
@@ -128,7 +122,7 @@ Resources:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-RoleLambdaExecutionArn
       Runtime: nodejs16.x
-      Timeout: 128
+      Timeout: 15
       VpcConfig:
         SubnetIds:
           - Fn::ImportValue:
@@ -450,10 +444,10 @@ Resources:
       RestApiId: !Ref ApiGateway
       Description: Default Stage
       StageName: !Ref Environment
-      Variables:
-        nlb:
-          Fn::ImportValue:
-            !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns 
+      # Variables:
+      #   nlb:
+      #     Fn::ImportValue:
+      #       !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns 
       # AccessLogSetting:
       #   DestinationArn:
       #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
@@ -487,10 +481,15 @@ Resources:
 
 Outputs:
   ApiGateway:
-    Description: ApiGateway id generated
+    Description: Id ApiGateway
     Value: !Ref ApiGateway
     Export:
       Name: !Sub ${Project}-${Environment}-ApiGatewayId
+  ApiGatewayDefaultUri:
+    Description: ApiGateway Uri Default
+    Value: !Sub https://${ApiGateway}.execute-api.us-east-1.amazonaws.com/${Stage}
+    Export:
+      Name: !Sub ${Project}-${Environment}-ApiGatewayUriDefault
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
@@ -512,7 +511,6 @@ Metadata:
       - Label: 
           default: Datos del Funciones Lambda
         Parameters: 
-          - AllowLogs
           - S3KeyFileLambdaAuthorizer
           - S3KeyFileLambdaBackEnd
           - DummyAuthorizer
@@ -523,8 +521,6 @@ Metadata:
         default: Nombre del Ambiente
       DeploymentTime: 
         default: Dato para generar un nuevo deployment del API
-      AllowLogs: 
-        default: Habilitar permisos para generar logs de las funciones Lambdas
       S3KeyFileLambdaAuthorizer: 
         default: Key del archivo con el codigo de la lambda Authorizer
       S3KeyFileLambdaBackEnd: 
