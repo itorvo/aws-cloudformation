@@ -117,6 +117,8 @@ Resources:
           TableName: Country
       FunctionName: !Sub ${Project}-${Environment}-lambda-backend
       Handler: index.handler
+      Layers:
+        - !ImportValue LayerXRayNodeJs
       MemorySize: 128
       Role:
         Fn::ImportValue:
@@ -488,7 +490,7 @@ Outputs:
   ApiGatewayDefaultUri:
     Description: ApiGateway Uri Default
     Condition: requireDeploy
-    Value: !Sub https://${ApiGateway}.execute-api.us-east-1.amazonaws.com/${Stage}
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
     Export:
       Name: !Sub ${Project}-${Environment}-ApiGatewayUriDefault
 Metadata: 

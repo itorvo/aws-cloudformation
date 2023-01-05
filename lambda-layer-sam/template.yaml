@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Layers para X-Ray
+Resources:
+  LayerXRayNodeJs:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: xray-layer-nodejs
+      Description: Dependencies for X-Ray in NodeJs
+      ContentUri: node-layers/xray
+      CompatibleRuntimes:
+        - nodejs18.x
+        - nodejs16.x
+        - nodejs14.x
+      LicenseInfo: 'MIT'
+      RetentionPolicy: Retain
+Outputs:
+  LayerXRayNodeJs:
+    Description: Arn Layer X-Ray NodeJs
+    Value: !Ref LayerXRayNodeJs
+    Export:
+      Name: LayerXRayNodeJs
