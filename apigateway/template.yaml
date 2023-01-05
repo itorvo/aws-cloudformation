@@ -122,7 +122,7 @@ Resources:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-RoleLambdaExecutionArn
       Runtime: nodejs16.x
-      Timeout: 15
+      Timeout: 10
       VpcConfig:
         SubnetIds:
           - Fn::ImportValue:
@@ -487,6 +487,7 @@ Outputs:
       Name: !Sub ${Project}-${Environment}-ApiGatewayId
   ApiGatewayDefaultUri:
     Description: ApiGateway Uri Default
+    Condition: requireDeploy
     Value: !Sub https://${ApiGateway}.execute-api.us-east-1.amazonaws.com/${Stage}
     Export:
       Name: !Sub ${Project}-${Environment}-ApiGatewayUriDefault

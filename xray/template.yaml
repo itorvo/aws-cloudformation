@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Creacion de VPC"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [ dev, qa, prod ]
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+  XRay:
+    Type: AWS::XRay::Group
+    Properties: 
+      FilterExpression: http.url CONTAINS "oympycu7d7"
+      GroupName: !Sub ${Project}-${Environment}-api-normal
+      InsightsConfiguration: 
+        InsightsEnabled: false
+        NotificationsEnabled: false
+      Tags: 
+        - Key: group-name
+          Value: !Sub ${Project}-${Environment}-api-normal
+        - Key: project
+          Value: !Ref Project
+        - Key: environment
+          Value: !Ref Environment
+  GroupFail:
+    Type: AWS::XRay::Group
+    Properties: 
+      FilterExpression: fault = true OR error = true
+      GroupName: !Sub ${Project}-${Environment}-api-fail
+      InsightsConfiguration: 
+        InsightsEnabled: true
+        NotificationsEnabled: false
+      Tags: 
+        - Key: group-name
+          Value: !Sub ${Project}-${Environment}-api-normal
+        - Key: project
+          Value: !Ref Project
+        - Key: environment
+          Value: !Ref Environment
+  
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente

@@ -15,7 +15,7 @@ aws s3 cp lambda-authorizer-package%version%.zip %url_bucket%lambda-authorizer-p
 del lambda-authorizer-package%version%.zip
 
 : Deploy Lambda Backend
-@REM npm install
+call npm install
 zip -g lambda-back-package%version%.zip .\index.js
 zip -r lambda-back-package%version%.zip .\node_modules
 aws s3 cp lambda-back-package%version%.zip %url_bucket%lambda-back-package%version%.zip

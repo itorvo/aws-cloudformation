@@ -15,8 +15,17 @@ exports.handler = async (event, context, callback) => {
       const pokemons = await getListPokemons(event.queryStringParameters.limit, event.queryStringParameters.page)
       return createResponse(200, pokemons);
     }
-    else{
-      const countries = await getAllCountries();
+    else {
+
+      if (data % 2 === 1)
+        if (data % 3 === 0 || data % 5 === 0) {
+          return createResponse(400, null)
+        }
+        // else {
+        //   await sleep(11000)
+        // }
+
+      const countries = await getAllCountries(parseInt(data));
       return createResponse(200, countries)
     }
   }
@@ -60,7 +69,7 @@ async function getListPokemons(limit, page) {
   return data;
 }
 
-async function getAllCountries() {
+async function getAllCountries(data) {
 
   const AWS = AWSXRay.captureAWS(require('aws-sdk'));
   let dynamoDbClient = new AWS.DynamoDB.DocumentClient();
@@ -83,4 +92,8 @@ async function getAllCountries() {
   subsegment.close();
 
   return items
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
