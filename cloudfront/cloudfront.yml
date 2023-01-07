@@ -26,7 +26,7 @@ Parameters:
   Project:
     Description: Nombre del Proyecto
     Type: String
-    Default: copapragma
+    Default: ito
   CloudFrontStatus:
     Type: String
     Default: true
@@ -53,43 +53,43 @@ Conditions:
   IsProduction: !Equals [ "pdn", !Ref Environment ]
   CrearPoliticaHeaders: !Not [ !And [ Condition: SinAlias, Condition: SinDomainBack ] ]
 Resources:
-  RoleLambdaEdgeOriginRequest:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-                - edgelambda.amazonaws.com
-            Action: sts:AssumeRole
-      Description: Rol por defecto para lambda-edge
-      MaxSessionDuration: 3600
-      RoleName: !Sub ${Project}-${Environment}-role-lambda-edge-origin-request
-  LambdaEdgeOriginRequest:
-    Type: AWS::Lambda::Function
-    Properties:
-      Code:
-        S3Bucket:
-          Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
-        S3Key: !Ref S3KeyFileLambda
-      Description: Lambda Edge de Origin Request
-      FunctionName: !Sub ${Project}-${Environment}-lambda-edge-origin-request
-      Handler: index.handler
-      MemorySize: 128
-      Role: !GetAtt RoleLambdaEdgeOriginRequest.Arn
-      Runtime: nodejs16.x
-      Timeout: 5
-  LambdaEdgeOriginRequestVersion:
-    Type: Custom::LambdaVersion
-    DeletionPolicy: Retain
-    Properties:
-      ServiceToken:
-        Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
-      FunctionName: !Ref LambdaEdgeOriginRequest
-      DeploymentTime: !Ref DeploymentTime
+  # RoleLambdaEdgeOriginRequest:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service:
+  #               - lambda.amazonaws.com
+  #               - edgelambda.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Description: Rol por defecto para lambda-edge
+  #     MaxSessionDuration: 3600
+  #     RoleName: !Sub ${Project}-${Environment}-role-lambda-edge-origin-request
+  # LambdaEdgeOriginRequest:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     Code:
+  #       S3Bucket:
+  #         Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
+  #       S3Key: !Ref S3KeyFileLambda
+  #     Description: Lambda Edge de Origin Request
+  #     FunctionName: !Sub ${Project}-${Environment}-lambda-edge-origin-request
+  #     Handler: index.handler
+  #     MemorySize: 128
+  #     Role: !GetAtt RoleLambdaEdgeOriginRequest.Arn
+  #     Runtime: nodejs16.x
+  #     Timeout: 5
+  # LambdaEdgeOriginRequestVersion:
+  #   Type: Custom::LambdaVersion
+  #   DeletionPolicy: Retain
+  #   Properties:
+  #     ServiceToken:
+  #       Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
+  #     FunctionName: !Ref LambdaEdgeOriginRequest
+  #     DeploymentTime: !Ref DeploymentTime
   PolicyResponseHeaders:
     Type: AWS::CloudFront::ResponseHeadersPolicy
     Condition: CrearPoliticaHeaders
@@ -168,10 +168,10 @@ Resources:
             DefaultTTL: 86400
             ForwardedValues:
               QueryString: false
-            LambdaFunctionAssociations:
-              - EventType: origin-request
-                IncludeBody: false
-                LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
+            # LambdaFunctionAssociations:
+            #   - EventType: origin-request
+            #     IncludeBody: false
+            #     LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
             MaxTTL: 31536000
             MinTTL: 0
             PathPattern: /cdn*
@@ -200,10 +200,10 @@ Resources:
           DefaultTTL: 86400
           ForwardedValues:
             QueryString: false
-          LambdaFunctionAssociations:
-            - EventType: origin-request
-              IncludeBody: false
-              LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
+          # LambdaFunctionAssociations:
+          #   - EventType: origin-request
+          #     IncludeBody: false
+          #     LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
           MaxTTL: 31536000
           MinTTL: 0
           ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
@@ -257,16 +257,20 @@ Resources:
   BucketFrontDefault:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Environment}.portal.withdrawal.portal
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+      BucketName: !Sub ${Project}-${Environment}-site-principal
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - ServerSideEncryptionByDefault:
+      #         SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
   BucketFrontDefaultPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket:
-        Ref: BucketFrontDefault
+      Bucket: !Ref BucketFrontDefault
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -275,11 +279,10 @@ Resources:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontDefault}
             Action:
               - s3:GetObject
-            Resource:
-            Fn::Join:
-                - ''
-                - - !GetAtt BucketFrontDefault.Arn
-                  - /*
+            Resource: !Join
+              - ''
+              - - !GetAtt BucketFrontDefault.Arn
+                - /*
   OAIBucketFrontAssets:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
@@ -288,11 +291,16 @@ Resources:
   BucketFrontAssets:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Environment}.portal.withdrawal.assets
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+      BucketName: !Sub ${Project}-${Environment}-site-assets
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - ServerSideEncryptionByDefault:
+      #         SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
   BucketFrontAssetsPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -305,8 +313,7 @@ Resources:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAIBucketFrontAssets}
             Action:
               - s3:GetObject
-            Resource:
-              Fn::Join:
-                - ''
-                - - !GetAtt BucketFrontAssets.Arn
-                  - /*
+            Resource: !Join
+              - ''
+              - - !GetAtt BucketFrontAssets.Arn
+                - /*
