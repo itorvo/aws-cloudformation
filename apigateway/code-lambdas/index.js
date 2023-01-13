@@ -35,13 +35,10 @@ async function getListPokemons(limit, page) {
 
   let axios = require('axios');
 
-  const AWSXRay = require('aws-xray-sdk-core')
+  const XRayClient = require('/opt/nodejs/aws-x-ray-client')
 
-  let http = require('http');
-  let https = require('https');
-
-  AWSXRay.captureHTTPsGlobal(http);
-  AWSXRay.captureHTTPsGlobal(https);
+  let http = XRayClient.captureHttpGlobal();
+  let https = XRayClient.captureHttpsGlobal();
 
   const url = `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${page}`;
 
@@ -50,8 +47,7 @@ async function getListPokemons(limit, page) {
     httpsAgent: new https.Agent(),
   });
 
-  const segment = AWSXRay.getSegment();
-  const subsegment = segment.addNewSubsegment('ListPokemon');
+  const subsegment = XRayClient.addSubSegment('ListPokemon');
 
   let data = await instance.get(url).then(function (response) {
     return response.data
@@ -60,7 +56,7 @@ async function getListPokemons(limit, page) {
       return null;
     });
 
-  subsegment.close();
+  XRayClient.closeSubSegment(subsegment);
 
   return data;
 }
@@ -93,9 +89,8 @@ async function getAllCountries(limit) {
 }
 
 function configureXRaySubSegment(XRayClient, label, limit) {
-  const segment = XRayClient.getSegment();
 
-  const subsegment = XRayClient.addSubSegment(segment, label);
+  const subsegment = XRayClient.addSubSegment(label);
 
   XRayClient.setMetadata(subsegment,
     {

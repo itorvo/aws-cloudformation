@@ -14,9 +14,26 @@ Resources:
         - nodejs14.x
       LicenseInfo: 'MIT'
       RetentionPolicy: Retain
+  LayerAxiosNodeJs:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: axios-layer-nodejs
+      Description: Dependencies for Axios in NodeJs
+      ContentUri: node-layers/axios
+      CompatibleRuntimes:
+        - nodejs18.x
+        - nodejs16.x
+        - nodejs14.x
+      LicenseInfo: 'MIT'
+      RetentionPolicy: Retain
 Outputs:
   LayerXRayNodeJs:
     Description: Arn Layer X-Ray NodeJs
     Value: !Ref LayerXRayNodeJs
     Export:
       Name: LayerXRayNodeJs
+  LayerAxiosNodeJs:
+    Description: Arn Layer Axios NodeJs
+    Value: !Ref LayerAxiosNodeJs
+    Export:
+      Name: LayerAxiosNodeJs

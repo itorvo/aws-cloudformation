@@ -8,12 +8,24 @@ exports.getAWSSDK = () => {
   return AWSXRay.captureAWS(require('aws-sdk'));
 }
 
+exports.captureHttpGlobal = () => {
+  let http = require('http');
+  AWSXRay.captureHTTPsGlobal(http);
+  return http;
+}
+
+exports.captureHttpsGlobal = () => {
+  let https = require('https');
+  AWSXRay.captureHTTPsGlobal(https);
+  return https;
+}
+
 exports.getSegment = () => {
   return AWSXRay.getSegment();
 }
 
-exports.addSubSegment = (segment, label) => {
-  return segment.addNewSubsegment(label);
+exports.addSubSegment = (label) => {
+  return AWSXRay.getSegment().addNewSubsegment(label);
 }
 
 exports.closeSubSegment = (subsegment) => {
