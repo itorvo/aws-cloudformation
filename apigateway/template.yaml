@@ -117,23 +117,23 @@ Resources:
           TableName: Country
       FunctionName: !Sub ${Project}-${Environment}-lambda-backend
       Handler: index.handler
-      Layers:
-        - !ImportValue LayerXRayNodeJs
+      # Layers:
+      #   - !ImportValue LayerXRayNodeJs
       MemorySize: 128
       Role:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-RoleLambdaExecutionArn
       Runtime: nodejs16.x
       Timeout: 10
-      VpcConfig:
-        SubnetIds:
-          - Fn::ImportValue:
-              !Sub ${Project}-${Environment}-SrvSub1
-          # - Fn::ImportValue:
-          #     !Sub ${Project}-${Environment}-SrvSub2
-        SecurityGroupIds:
-          - Fn::ImportValue:
-              !Sub ${Project}-${Environment}-SecurityGroupBackEnd
+      # VpcConfig:
+      #   SubnetIds:
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SrvSub1
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SrvSub2
+      #   SecurityGroupIds:
+      #     - Fn::ImportValue:
+      #         !Sub ${Project}-${Environment}-SecurityGroupBackEnd
       TracingConfig:
         Mode: !If [ EnableXRay, Active, PassThrough ]
   LambdaBackendPermission:

@@ -13,7 +13,12 @@ Parameters:
     Type: String
     Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
-
+  RequireLogs:
+    Type: String
+    Default: false
+    AllowedValues: [ true, false ]
+Conditions:
+  enableLogs: !Equals [ false, !Ref RequireLogs ]
 Resources:
   PolicyExecution:
     Type: AWS::IAM::ManagedPolicy
@@ -77,6 +82,7 @@ Resources:
   
   PolicyNoLogs:
     Type: AWS::IAM::ManagedPolicy
+    Condition: enableLogs
     Properties:
       Description: Politica bloqueando la generación de logs
       ManagedPolicyName: !Sub ${Project}-${Environment}-policy-deny-logs

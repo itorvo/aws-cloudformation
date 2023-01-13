@@ -1,3 +1,8 @@
+# SAM Package
+sam package --template-file template.yaml --s3-bucket ito-437950194672-lambda-deployments --s3-prefix layer-xray --output-template-file out.yaml
+# SAM Deploy
+sam deploy --template-file ./out.yaml --stack-name lambda-xray-layers --capabilities CAPABILITY_IAM
+
 # layer-xray-nodejs
 
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.

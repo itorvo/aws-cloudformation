@@ -1,31 +1,16 @@
-let axios = require('axios');
 
-const AWSXRay = require('aws-xray-sdk-core')
-
-let http = require('http');
-let https = require('https');
-
-AWSXRay.captureHTTPsGlobal(http);
-AWSXRay.captureHTTPsGlobal(https);
 
 exports.handler = async (event, context, callback) => {
   try {
-    let data = event.headers.data;
-    if (data === '1') {
-      const pokemons = await getListPokemons(event.queryStringParameters.limit, event.queryStringParameters.page)
+    let data = parseInt(event.headers.data)
+    const limit = parseInt(event.queryStringParameters.limit);
+    const page = parseInt(event.queryStringParameters.page);
+    if (data % 2 === 1) {
+      const pokemons = await getListPokemons(limit, page)
       return createResponse(200, pokemons);
     }
     else {
-
-      if (data % 2 === 1)
-        if (data % 3 === 0 || data % 5 === 0) {
-          return createResponse(400, null)
-        }
-        // else {
-        //   await sleep(11000)
-        // }
-
-      const countries = await getAllCountries(parseInt(data));
+      const countries = await getAllCountries(limit);
       return createResponse(200, countries)
     }
   }
@@ -47,6 +32,17 @@ function createResponse(statusCode, body) {
 }
 
 async function getListPokemons(limit, page) {
+
+  let axios = require('axios');
+
+  const AWSXRay = require('aws-xray-sdk-core')
+
+  let http = require('http');
+  let https = require('https');
+
+  AWSXRay.captureHTTPsGlobal(http);
+  AWSXRay.captureHTTPsGlobal(https);
+
   const url = `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${page}`;
 
   const instance = axios.create({
@@ -69,13 +65,15 @@ async function getListPokemons(limit, page) {
   return data;
 }
 
-async function getAllCountries(data) {
+async function getAllCountries(limit) {
 
-  const AWS = AWSXRay.captureAWS(require('aws-sdk'));
+  const XRayClient = require('/opt/nodejs/aws-x-ray-client')
+
+  const AWS = XRayClient.getAWSSDK();
+
+  let subsegment = configureXRaySubSegment(XRayClient, 'GetAllCountry', limit)
+
   let dynamoDbClient = new AWS.DynamoDB.DocumentClient();
-
-  const segment = AWSXRay.getSegment();
-  const subsegment = segment.addNewSubsegment('GetAllCountries');
 
   const params = {
     TableName: process.env.TableName
@@ -89,9 +87,29 @@ async function getAllCountries(data) {
       return null
     });
 
-  subsegment.close();
+  XRayClient.closeSubSegment(subsegment);
 
   return items
+}
+
+function configureXRaySubSegment(XRayClient, label, limit) {
+  const segment = XRayClient.getSegment();
+
+  const subsegment = XRayClient.addSubSegment(segment, label);
+
+  XRayClient.setMetadata(subsegment,
+    {
+      limit: limit
+    }
+  )
+
+  XRayClient.setAnnotations(subsegment,
+    {
+      limit: limit
+    }
+  )
+
+  return subsegment;
 }
 
 function sleep(ms) {
