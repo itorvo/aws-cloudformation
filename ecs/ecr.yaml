@@ -21,6 +21,10 @@ Resources:
     Type: AWS::ECR::Repository
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-x-ray
+  EcrBatchTest:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub ${Project}-${Environment}-test-batch
   EcrRegistry1:
     Type: AWS::ECR::Repository
     Properties: 

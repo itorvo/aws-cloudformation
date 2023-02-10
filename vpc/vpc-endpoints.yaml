@@ -11,21 +11,56 @@ Parameters:
     Type: String
     Default: ito
     AllowedPattern: ^([a-z]|[0-9])*$
-  CreateEndPoints:
+  RequireXRay:
     Type: String
-    Default: false
+    Default: 'false'
     AllowedValues:
-      - false
-      - true
+      - 'false'
+      - 'true'
+  RequireECR:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
+  RequireLogs:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
+  RequireAPI:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
+  RequireS3:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
+  RequireDynamo:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
 Conditions:
-  createResources: !Equals [ true, !Ref CreateEndPoints ]
+  createXRay: !Equals [ 'true', !Ref RequireXRay ]
+  createECR: !Equals [ 'true', !Ref RequireECR ]
+  createLogs: !Equals [ 'true', !Ref RequireLogs ]
+  createAPI: !Equals [ 'true', !Ref RequireAPI ]
+  createS3: !Equals [ 'true', !Ref RequireS3 ]
+  createDynamo: !Equals [ 'true', !Ref RequireDynamo ]
 Resources:
 ## VPC Endpoints ##
   XRay:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createXRay
     Properties:
-      PrivateDnsEnabled: true
+      PrivateDnsEnabled: 'true'
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.xray
       VpcId:
@@ -40,9 +75,9 @@ Resources:
   
   CloudWatchLogs:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createLogs
     Properties:
-      PrivateDnsEnabled: true
+      PrivateDnsEnabled: 'true'
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
       VpcId:
@@ -57,9 +92,9 @@ Resources:
   
   EcrApi:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createECR
     Properties:
-      PrivateDnsEnabled: true
+      PrivateDnsEnabled: 'true'
       VpcEndpointType: Interface
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
       VpcId:
@@ -74,10 +109,27 @@ Resources:
   
   EcrDkr:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createECR
     Properties:
-      PrivateDnsEnabled: true
+      PrivateDnsEnabled: 'true'
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
+      VpcEndpointType: Interface
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
+
+  ApiGateway:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: createAPI
+    Properties:
+      PrivateDnsEnabled: 'true'
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
       VpcEndpointType: Interface
       VpcId:
         Fn::ImportValue:
@@ -91,9 +143,9 @@ Resources:
 
   S3:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createS3
     Properties:
-      PrivateDnsEnabled: false
+      PrivateDnsEnabled: 'false'
       VpcEndpointType: Gateway
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
       VpcId:
@@ -105,9 +157,9 @@ Resources:
 
   DynamoDb:
     Type: AWS::EC2::VPCEndpoint
-    Condition: createResources
+    Condition: createDynamo
     Properties:
-      PrivateDnsEnabled: false
+      PrivateDnsEnabled: 'false'
       VpcEndpointType: Gateway
       ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
       VpcId:
@@ -116,13 +168,13 @@ Resources:
       RouteTableIds:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-PrivateRouteTable
-Outputs:
-  VPCEXRay:
-    Condition: createResources
-    Description: VPC Endpoint X-Ray
-    Value: !Ref XRay
-    Export:
-      Name: !Sub ${Project}-${Environment}-VPCE-X-Ray
+# Outputs:
+#   VPCEXRay:
+#     Condition: createResources
+#     Description: VPC Endpoint X-Ray
+#     Value: !Ref XRay
+#     Export:
+#       Name: !Sub ${Project}-${Environment}-VPCE-X-Ray
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
@@ -131,11 +183,29 @@ Metadata:
         Parameters: 
           - Project
           - Environment
-          - CreateEndPoints
+      - Label: 
+          default: VPC EndPoints
+        Parameters: 
+          - RequireXRay
+          - RequireECR
+          - RequireLogs
+          - RequireAPI
+          - RequireS3
+          - RequireDynamo
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
       Environment: 
         default: Nombre del Ambiente
-      CreateEndPoints: 
-        default: Crear Endpoints
+      RequireXRay: 
+        default: Crear Endpoint para X-Ray
+      RequireECR: 
+        default: Crear Endpoint para ECR
+      RequireLogs: 
+        default: Crear Endpoint para CloudWatch Logs
+      RequireAPI: 
+        default: Crear Endpoint para API Gateway
+      RequireS3: 
+        default: Crear Endpoint para S3
+      RequireDynamo: 
+        default: Crear Endpoints para DynamoDb
