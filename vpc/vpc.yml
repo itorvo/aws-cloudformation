@@ -111,6 +111,27 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !Ref SecurityGroupBackEnd
 
+  SecurityGroupPublic:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-sgr-public
+      GroupDescription: Access from any location
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-sgr-public
+        - Key: Project
+          Value: !Sub ${Project}
+        - Key: Environment
+          Value: !Sub ${Environment}
+      VpcId: !Ref VPC
+  SecurityGroupPublicIngressFromAny:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from any location
+      GroupId: !Ref SecurityGroupPublic
+      CidrIp: 0.0.0.0/0
+      IpProtocol: -1
+
   SecurityGroupVPCEndpoints:
     Type: AWS::EC2::SecurityGroup
     Properties:

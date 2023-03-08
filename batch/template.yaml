@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Api gateway
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+    Default: dev
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+  
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties: 
+      ComputeEnvironmentName: !Sub ${Project}-${Environment}-compute-environment
+      ComputeResources: 
+        ComputeResources
+      EksConfiguration: 
+        EksConfiguration
+      ReplaceComputeEnvironment: Boolean
+      ServiceRole: String
+      State: String
+      Tags: 
+        Key : Value
+      Type: String
+      UnmanagedvCpus: Integer
+      UpdatePolicy: 
+        UpdatePolicy
+
+computeEnvironments:
+- computeEnvironmentArn: arn:aws:batch:us-east-1:437950194672:compute-environment/compute-environment-test
+  computeEnvironmentName: compute-environment-test
+  computeResources:
+    ec2Configuration: []
+    maxvCpus: 256
+    securityGroupIds:
+    - sg-0bf3c894bfd76a261
+    subnets:
+    - subnet-0e49d9cc3e476b4ad
+    - subnet-0579069f5766d6280
+    tags: {}
+    type: FARGATE
+  containerOrchestrationType: ECS
+  ecsClusterArn: arn:aws:ecs:us-east-1:437950194672:cluster/compute-environment-test_Batch_d8b5adf7-5a55-37e0-832e-0626f82cc42c
+  serviceRole: arn:aws:iam::437950194672:role/BatchExecutionRole
+  state: ENABLED
+  status: VALID
+  statusReason: ComputeEnvironment Healthy
+  tags: {}
+  type: MANAGED
+  uuid: 0e0eaf30-837d-357e-9c69-94fd186b27d9
+
+    
