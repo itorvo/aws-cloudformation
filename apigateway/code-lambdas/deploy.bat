@@ -11,16 +11,16 @@ cd package
 zip -r ../lambda-authorizer-package%version%.zip .
 cd ..
 zip -g lambda-authorizer-package%version%.zip .\index.py
-aws s3 cp lambda-authorizer-package%version%.zip %url_bucket%lambda-authorizer-package%version%.zip
-del lambda-authorizer-package%version%.zip
+@REM aws s3 cp lambda-authorizer-package%version%.zip %url_bucket%lambda-authorizer-package%version%.zip
+@REM del lambda-authorizer-package%version%.zip
 
 : Deploy Lambda Backend
-call npm install
-zip -g lambda-back-package%version%.zip .\index.js
-zip -r lambda-back-package%version%.zip .\node_modules
-aws s3 cp lambda-back-package%version%.zip %url_bucket%lambda-back-package%version%.zip
-del lambda-back-package%version%.zip
+@REM call npm install
+@REM zip -g lambda-back-package%version%.zip .\index.js
+@REM zip -r lambda-back-package%version%.zip .\node_modules
+@REM aws s3 cp lambda-back-package%version%.zip %url_bucket%lambda-back-package%version%.zip
+@REM del lambda-back-package%version%.zip
 
-: Show S3 Key Files
-echo lambda-authorizer-package%version%.zip
-echo lambda-back-package%version%.zip
+@REM : Show S3 Key Files
+@REM echo lambda-authorizer-package%version%.zip
+@REM echo lambda-back-package%version%.zip

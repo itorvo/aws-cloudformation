@@ -85,6 +85,37 @@ Resources:
           Value: !Ref Project
         - Key: Descripcion
           Value: Almacenar los artefactos generados en los pipelines
+  BucketSFTPTest:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${AWS::AccountId}-sftp-files
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Descripcion
+          Value: Almacenar los archivos cargados mediante SFTP
+  # BucketSFTPTestPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref BucketSFTPTest
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Action:
+  #             - '*'
+  #           Effect: Allow
+  #           Resource: !Join
+  #             - ''
+  #             - - 'arn:aws:s3:::'
+  #               - !Ref BucketSFTPTest
+  #               - /*
+  #           Principal: '*'
 Outputs:
   BucketDeploymentsName:
     Description: Nombre del bucket para guardar los deployments de proyectos

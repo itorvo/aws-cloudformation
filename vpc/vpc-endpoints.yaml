@@ -47,6 +47,12 @@ Parameters:
     AllowedValues:
       - 'false'
       - 'true'
+  RequireSecretsManager:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
 Conditions:
   createXRay: !Equals [ 'true', !Ref RequireXRay ]
   createECR: !Equals [ 'true', !Ref RequireECR ]
@@ -54,6 +60,7 @@ Conditions:
   createAPI: !Equals [ 'true', !Ref RequireAPI ]
   createS3: !Equals [ 'true', !Ref RequireS3 ]
   createDynamo: !Equals [ 'true', !Ref RequireDynamo ]
+  createSecretsManager: !Equals [ 'true', !Ref RequireSecretsManager ]
 Resources:
 ## VPC Endpoints ##
   XRay:
@@ -168,6 +175,23 @@ Resources:
       RouteTableIds:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-PrivateRouteTable
+
+  SecretsManager:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: createSecretsManager
+    Properties:
+      PrivateDnsEnabled: 'true'
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+      VpcEndpointType: Interface
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-VpcId
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
 # Outputs:
 #   VPCEXRay:
 #     Condition: createResources

@@ -51,7 +51,7 @@ Conditions:
   SinAlias: !Or [ Condition: SinCustomDomainFront, Condition: SinCertificateKey ]
   SinDomainBack: !Equals [ "NO", !Ref DomainBack ]
   IsProduction: !Equals [ "pdn", !Ref Environment ]
-  CrearPoliticaHeaders: !Not [ !And [ Condition: SinAlias, Condition: SinDomainBack ] ]
+  CrearPoliticaHeaders: !Equals [ "pdn", !Ref Environment ]
 Resources:
   # RoleLambdaEdgeOriginRequest:
   #   Type: AWS::IAM::Role
@@ -90,68 +90,83 @@ Resources:
   #       Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
   #     FunctionName: !Ref LambdaEdgeOriginRequest
   #     DeploymentTime: !Ref DeploymentTime
-  PolicyResponseHeaders:
-    Type: AWS::CloudFront::ResponseHeadersPolicy
-    Condition: CrearPoliticaHeaders
-    Properties: 
-      ResponseHeadersPolicyConfig:
-        Name: !Sub ${Project}PolicyHeadersSeguridad${Project}${Environment}
-        Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
-        CorsConfig: 
-          AccessControlAllowCredentials: true
-          AccessControlAllowHeaders: 
-            Items:
-              - 'x-permitted-cross-domain-policies'
-              - 'Cache-Control'
-              - 'Pragma'
-              - 'Server'
-          AccessControlAllowMethods: 
-            Items: 
-              - GET
-              - HEAD
-          AccessControlAllowOrigins:
-            Items:
-              - !Sub https://${CustomDomainFront}
-          AccessControlMaxAgeSec: 600
-          OriginOverride: true
-        CustomHeadersConfig:
-          Items:
-            - Header: x-permitted-cross-domain-policies
-              Override: true
-              Value: none
-            - Header: Cache-Control
-              Override: true
-              Value: no-store
-            - Header: Pragma
-              Override: true
-              Value: no-cache
-            - Header: Server
-              Override: true
-              Value: '-'
-            - Header: Permissions-Policy
-              Override: true
-              Value: !Sub 'fullscreen=(self "https://${CustomDomainFront}")'
-        SecurityHeadersConfig:
-          ContentSecurityPolicy:
-            ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
-            Override: true
-          ContentTypeOptions:
-            Override: true
-          FrameOptions:
-            FrameOption: DENY
-            Override: true
-          ReferrerPolicy:
-            Override: true
-            ReferrerPolicy: same-origin
-          StrictTransportSecurity:
-            AccessControlMaxAgeSec: 31536000
-            IncludeSubdomains: true
-            Override: true
-            Preload: true
-          XSSProtection:
-            ModeBlock: true
-            Override: true
-            Protection: true
+  # PolicyResponseHeaders:
+  #   Type: AWS::CloudFront::ResponseHeadersPolicy
+  #   Condition: CrearPoliticaHeaders
+  #   Properties: 
+  #     ResponseHeadersPolicyConfig:
+  #       Name: !Sub ${Project}PolicyHeadersSeguridad${Project}${Environment}
+  #       Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
+  #       CorsConfig: 
+  #         AccessControlAllowCredentials: true
+  #         AccessControlAllowHeaders: 
+  #           Items:
+  #             - 'x-permitted-cross-domain-policies'
+  #             - 'Cache-Control'
+  #             - 'Pragma'
+  #             - 'Server'
+  #         AccessControlAllowMethods: 
+  #           Items: 
+  #             - GET
+  #             - HEAD
+  #         AccessControlAllowOrigins:
+  #           Items:
+  #             - !Sub https://${CustomDomainFront}
+  #         AccessControlMaxAgeSec: 600
+  #         OriginOverride: true
+  #       CustomHeadersConfig:
+  #         Items:
+  #           - Header: x-permitted-cross-domain-policies
+  #             Override: true
+  #             Value: none
+  #           - Header: Cache-Control
+  #             Override: true
+  #             Value: no-store
+  #           - Header: Pragma
+  #             Override: true
+  #             Value: no-cache
+  #           - Header: Server
+  #             Override: true
+  #             Value: '-'
+  #           - Header: Permissions-Policy
+  #             Override: true
+  #             Value: !Sub 'fullscreen=(self "https://${CustomDomainFront}")'
+  #       SecurityHeadersConfig:
+  #         ContentSecurityPolicy:
+  #           ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
+  #           Override: true
+  #         ContentTypeOptions:
+  #           Override: true
+  #         FrameOptions:
+  #           FrameOption: DENY
+  #           Override: true
+  #         ReferrerPolicy:
+  #           Override: true
+  #           ReferrerPolicy: same-origin
+  #         StrictTransportSecurity:
+  #           AccessControlMaxAgeSec: 31536000
+  #           IncludeSubdomains: true
+  #           Override: true
+  #           Preload: true
+  #         XSSProtection:
+  #           ModeBlock: true
+  #           Override: true
+  #           Protection: true
+  
+  Type: AWS::CertificateManager::Certificate
+    Properties:
+      # CertificateAuthorityArn: String
+      CertificateTransparencyLoggingPreference: DISABLED
+      DomainName: String
+      DomainValidationOptions: 
+        - DomainValidationOption
+      KeyAlgorithm: String
+      SubjectAlternativeNames: 
+        - String
+      Tags: 
+        - Tag
+      ValidationMethod: String
+  
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -175,7 +190,7 @@ Resources:
             MaxTTL: 31536000
             MinTTL: 0
             PathPattern: /cdn*
-            ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
+            # ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
             SmoothStreaming: false
             TargetOriginId: !Ref BucketFrontAssets
             ViewerProtocolPolicy: redirect-to-https
@@ -206,7 +221,7 @@ Resources:
           #     LambdaFunctionARN: !Ref LambdaEdgeOriginRequestVersion
           MaxTTL: 31536000
           MinTTL: 0
-          ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
+          # ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
           SmoothStreaming: false
           TargetOriginId: !Ref BucketFrontDefault
           ViewerProtocolPolicy: redirect-to-https

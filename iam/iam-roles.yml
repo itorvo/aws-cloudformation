@@ -17,8 +17,13 @@ Parameters:
     Type: String
     Default: false
     AllowedValues: [ true, false ]
+  FullAccess:
+    Type: String
+    Default: false
+    AllowedValues: [ true, false ]
 Conditions:
   enableLogs: !Equals [ false, !Ref RequireLogs ]
+  createFullAccess: !Equals [ true, !Ref FullAccess ]
 Resources:
   PolicyExecution:
     Type: AWS::IAM::ManagedPolicy
@@ -249,6 +254,24 @@ Resources:
                 Resource:
                   - '*'
   
+  RoleLambdaFullAccess:
+    Type: AWS::IAM::Role
+    Condition: createFullAccess
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Sub ${Project}-${Environment}-lambda-administrator-access
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
