@@ -233,3 +233,5 @@ Metadata:
         default: Crear Endpoint para S3
       RequireDynamo: 
         default: Crear Endpoints para DynamoDb
+      RequireSecretsManager: 
+        default: Crear Endpoints para Secrets Manager
