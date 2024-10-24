@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: Deploy ECS Service Fargate
+Description: AWS ECR Repository Transversal
 Parameters:
   Environment:
     Type: String
@@ -12,10 +12,6 @@ Parameters:
   Project:
     Type: String
     Default: ito
-  MicroServiceName:
-    Type: String
-    Default: dummy
-    AllowedPattern: ^([a-z]|[0-9])*$
 Resources:
   EcrXRay:
     Type: AWS::ECR::Repository
@@ -25,10 +21,6 @@ Resources:
     Type: AWS::ECR::Repository
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-test-batch
-  EcrRegistry1:
-    Type: AWS::ECR::Repository
-    Properties: 
-      RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 Outputs:
   EcrXRayUri:
     Value:
@@ -37,10 +29,3 @@ Outputs:
         - repositoryUri: !GetAtt EcrXRay.RepositoryUri
     Export:
       Name: !Sub ${Project}-${Environment}-EcrXRayUri
-  EcrRegistryUri1:
-    Value:
-      !Sub
-        - ${repositoryUri}:latest
-        - repositoryUri: !GetAtt EcrRegistry1.RepositoryUri
-    Export:
-      Name: !Sub ${Project}-${Environment}-${MicroServiceName}-EcrUri

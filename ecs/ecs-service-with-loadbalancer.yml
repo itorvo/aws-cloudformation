@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: Deploy ECS Service - Fargate
+Description: Deploy ECS Service - Fargate - With Load Balancer
 Parameters:
   Environment:
     Type: String
@@ -50,12 +50,6 @@ Parameters:
     AllowedValues:
       - false
       - true
-  CreateRegistryECR:
-    Type: String
-    Default: false
-    AllowedValues:
-      - false
-      - true
   CreateService:
     Type: String
     Default: false
@@ -64,13 +58,11 @@ Parameters:
       - true
 Conditions:
   requireDiscoveryService: !Equals [ true, !Ref EnableDiscoveryService ]
-  requireECR: !Equals [ true, !Ref CreateRegistryECR ]
   isProduction: !Equals [ pdn, !Ref Environment ]
   requireService: !Equals [ true, !Ref CreateService ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
-    Condition: requireECR
     Properties: 
       RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 
@@ -164,7 +156,7 @@ Resources:
         - Name: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
           # EnvironmentFiles:
           #   - Type: s3
-          #     Value: ${ArnBucket}/keyFile
+          #     Value: arn:aws:s3:::kiire-s3-ecs-env-files-dev/dev/kiire-ecs-env-file-dev.env
           Environment:
             - Name: PORT
               Value: !Ref Port
@@ -172,15 +164,17 @@ Resources:
               Value: Country
           # Secrets:
           #   - Name: stage
-          #     ValueFrom: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/STAGE
+          #   - Name: DB_PASSWORD
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_PASSWORD_DEV
+          #   - Name: DB_URL
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_URL_DEV
+          #   - Name: DB_USERNAME
+          #     ValueFrom: arn:aws:ssm:us-east-1:142779088135:parameter/DB_USERNAME_DEV
           Image:
-            !If
-              - requireECR
-              - !Sub
-                  - ${repositoryUri}:latest
-                  - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
-              - Fn::ImportValue:
-                  !Sub ${Project}-${Environment}-${MicroServiceName}-EcrUri
+            !Sub
+              - ${repositoryUri}:latest
+              - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
@@ -240,7 +234,6 @@ Outputs:
       Name: !Sub ${Project}-${Environment}-${MicroServiceName}-ECSService
   EcrRegistryRepositoryUri:
     Description: Url de la imagen de ECR
-    Condition: requireECR
     Value:
       !Sub
         - ${repositoryUri}:latest
