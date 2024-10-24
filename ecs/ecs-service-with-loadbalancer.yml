@@ -105,6 +105,7 @@ Resources:
 
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
+    Condition: requireService
     Properties:
       LogGroupName: !Sub /ecs/${Project}-${Environment}-${MicroServiceName}
       RetentionInDays: 1
@@ -124,6 +125,7 @@ Resources:
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    Condition: requireService
     Properties:
       Family: !Sub "${Project}-${Environment}-${MicroServiceName}"
       Cpu: !Ref CPU
@@ -224,7 +226,6 @@ Resources:
         - ContainerName: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
           ContainerPort: !Ref Port
           TargetGroupArn: !Ref TargetGroup
- 
 Outputs:
   ServiceName:
     Condition: requireService
@@ -240,3 +241,43 @@ Outputs:
         - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
     Export:
       Name: !Sub ${Project}-${Environment}-${MicroServiceName}-RepositoryUri
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Información del Servicio
+        Parameters: 
+          - CreateService
+          - MicroServiceName
+          - Port
+          - CPU
+          - RAM
+          - NumberTask
+      - Label: 
+          default: Componentes Adicionales
+        Parameters: 
+          - EnableDiscoveryService
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente
+      CreateService:
+        default: Crear Recursos del Servicio?
+      MicroServiceName:
+        default: Nombre del servicio
+      Port:
+        default: Número del puerto
+      CPU:
+        default: Cantidad Unidades de CPU
+      RAM:
+        default: Cantidad de RAM
+      NumberTask:
+        default: Número de Tareas
+      EnableDiscoveryService:
+        default: Habilitar DNS Privado
