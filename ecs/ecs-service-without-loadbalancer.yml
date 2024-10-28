@@ -109,6 +109,7 @@ Resources:
               !Sub ${Project}-${Environment}-EcrXRayUri
           # Cpu: 32
           # MemoryReservation: 256
+          Essential: false
           PortMappings:
             - ContainerPort: 2000
               Protocol: udp
@@ -147,6 +148,12 @@ Resources:
             !Sub
               - ${repositoryUri}:latest
               - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
+          Essential: true
+          # HealthCheck:
+          #   Command:
+          #     - CMD-SHELL
+          #     - curl -f http://localhost:8086/actuator/health
+            StartPeriod: 150
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
