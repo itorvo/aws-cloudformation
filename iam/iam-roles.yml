@@ -272,6 +272,22 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
+  RoleNodeInstanceProfile:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-role-node-instance-profile
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -343,6 +359,16 @@ Outputs:
     Value: !GetAtt RoleCustomResourceLambda.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleCustomResourceLambdaArn
+  RoleNodeInstanceProfile:
+    Description: Node Instance Profile Role Name
+    Value: !Ref RoleNodeInstanceProfile
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleNodeInstanceProfile
+  RoleNodeInstanceProfileArn:
+    Description: Node Instance Profile Role Arn
+    Value: !GetAtt RoleNodeInstanceProfile.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleNodeInstanceProfileArn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

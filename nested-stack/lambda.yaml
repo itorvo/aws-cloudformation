@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  FunctionName:
+    Type: String
+  RoleName:
+    Type: String
+  # PolicyDocument:
+  #   Type: JSON
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Runtime: python3.9
+      Handler: index.handler
+      Role: !Ref RoleName
+      Code:
+        S3Bucket: test-my-bucket-aws
+        S3Key: artifacts/nested_stacks/index.zip

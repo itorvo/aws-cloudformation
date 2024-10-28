@@ -341,21 +341,6 @@ Resources:
     Properties:
       RouteTableId: !Ref PubRT
       SubnetId: !Ref PubSub2
-  NodeInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-  
 ## Enable VPC Flow ##
   LogGroupVPCFlowLogs: 
     Type: AWS::Logs::LogGroup
@@ -431,9 +416,6 @@ Outputs:
     Value: !Ref PrivateRouteTable
     Export:
       Name: !Sub ${Project}-${Environment}-PrivateRouteTable
-  NodeInstanceRole:
-    Description: The node instance role
-    Value: !GetAtt NodeInstanceRole.Arn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

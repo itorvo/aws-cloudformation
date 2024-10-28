@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  FunctionName:
+    Type: String
+  # PolicyDocument:
+  #   Type: JSON
+
+Resources:
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/lambda.yaml
+      Parameters:
+        FunctionName: !Ref FunctionName
+        RoleName: !GetAtt IAMRoleStack.Outputs.RoleArn
+        # PolicyDocument: !Ref PolicyDocument
+  IAMRoleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/iam_role.yaml
+      Parameters:
+        RoleName: !Ref FunctionName
+      #   PolicyDocument: !Ref PolicyDocument
