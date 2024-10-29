@@ -83,6 +83,9 @@ Resources:
         PathPart: lambda
         ArnLambda: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ito-dev-lambda-backend
         HttpMethod: GET
+        TypeIntegration: AWS_PROXY
+        ValidateRequestBody: true
+        ValidateRequestParameters: true
   
   MethodOptionsResourceLambda:
     Type: AWS::CloudFormation::Stack
@@ -91,6 +94,31 @@ Resources:
       Parameters:
         RestApiId: !Ref ApiGateway
         ResourceApiId: !GetAtt ResourceLambda.Outputs.ApiGatewayResource
+        AllowMethods: GET,OPTIONS
+        AllowHeaders: Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,data
+        AllowOrigin: "'*'"
+  
+  ResourcePokemon:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/api-rest-rsrc-lambda.yaml
+      Parameters:
+        ParentId: !GetAtt ApiGateway.RootResourceId
+        RestApiId: !Ref ApiGateway
+        PathPart: pokemon
+        ArnLambda: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ito-dev-lambda-backend
+        HttpMethod: GET
+        TypeIntegration: AWS_PROXY
+        ValidateRequestBody: true
+        ValidateRequestParameters: true
+  
+  MethodOptionsResourcePokemon:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/api-rest-method-options.yaml
+      Parameters:
+        RestApiId: !Ref ApiGateway
+        ResourceApiId: !GetAtt ResourcePokemon.Outputs.ApiGatewayResource
         AllowMethods: GET,OPTIONS
         AllowHeaders: Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,data
         AllowOrigin: "'*'"

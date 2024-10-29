@@ -21,6 +21,22 @@ Parameters:
       - PATCH
       - HEAD
       - OPTIONS
+  TypeIntegration:
+    Type: String
+    Default: AWS_PROXY
+    AllowedValues:
+      - AWS
+      - AWS_PROXY
+  ValidateRequestBody:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+  ValidateRequestParameters:
+    Type: String
+    AllowedValues:
+      - true
+      - false
 Resources:
 
   ApiGatewayResource:
@@ -30,10 +46,18 @@ Resources:
       RestApiId: !Ref RestApiId
       PathPart: !Ref PathPart
   
+  RequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      RestApiId: !Ref RestApiId
+      ValidateRequestBody: !Ref ValidateRequestBody
+      ValidateRequestParameters: !Ref ValidateRequestParameters
+
   ApiGatewayMethod:
     Type: AWS::ApiGateway::Method
     Properties: 
       AuthorizationType: NONE
+      RequestValidatorId: !Ref RequestValidator
       HttpMethod: !Ref HttpMethod
       ResourceId: !Ref ApiGatewayResource
       RestApiId: !Ref RestApiId
@@ -43,7 +67,7 @@ Resources:
         method.request.header.data: true
       Integration: 
         IntegrationHttpMethod: POST
-        Type: AWS_PROXY
+        Type: !Ref TypeIntegration
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArnLambda}/invocations
         RequestParameters:
           integration.request.querystring.limit: method.request.querystring.limit
@@ -58,7 +82,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref ArnLambda
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*/${HttpMethod}/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*
 
 Outputs:
   ApiGatewayResource:

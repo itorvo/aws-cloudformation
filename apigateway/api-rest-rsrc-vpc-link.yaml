@@ -7,6 +7,45 @@ Parameters:
     Type: String
   PathPart:
     Type: String
+  HttpMethod:
+    Type: String
+    Default: GET
+    AllowedValues:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - HEAD
+      - OPTIONS
+      - ANY
+  ConnectionType:
+    Type: String
+    Default: VPC_LINK
+    AllowedValues:
+      - VPC_LINK
+      - INTERNET
+  VpcLinkConnectionId:
+    Type: String
+  TypeIntegration:
+    Type: String
+    Default: HTTP_PROXY
+    AllowedValues:
+      - HTTP
+      - HTTP_PROXY
+  ValidateRequestBody:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+  ValidateRequestParameters:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+Conditions:
+  isConectionPrivate: !Equals [ VPC_LINK, !Ref ConnectionType ]
+
 Resources:
 
   ApiGatewayResource:
@@ -16,21 +55,29 @@ Resources:
       RestApiId: !Ref RestApiId
       PathPart: !Ref PathPart
   
+  RequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      RestApiId: !Ref RestApiId
+      ValidateRequestBody: !Ref ValidateRequestBody
+      ValidateRequestParameters: !Ref ValidateRequestParameters
+
   ApiGatewayMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       AuthorizationType: NONE
-      HttpMethod: ANY  # Cambia esto al método HTTP que necesites
+      RequestValidatorId: !Ref RequestValidator
+      HttpMethod: !Ref HttpMethod
       ResourceId: !Ref ApiGatewayResource
       RestApiId: !Ref RestApiId
       RequestParameters:
         method.request.path.proxy: true
       Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: ANY  # Cambia esto al método HTTP que necesites
+        Type: !Ref TypeIntegration
+        IntegrationHttpMethod: !Ref HttpMethod
         Uri: http://ito-dev-network-4cc45d4c275143f9.elb.us-east-1.amazonaws.com:9000/{proxy}
-        ConnectionType: VPC_LINK
-        ConnectionId: 28oy07  # Reemplaza con el ID de tu VPC Link
+        ConnectionType: !Ref ConnectionType
+        ConnectionId: !If [ isConectionPrivate, !Ref VpcLinkConnectionId, !Ref AWS::NoValue ]
         PassthroughBehavior: WHEN_NO_MATCH
         RequestParameters:
           integration.request.path.proxy: method.request.path.proxy
@@ -47,26 +94,6 @@ Resources:
       MethodResponses:
         - StatusCode: 200
 
-  ApiGatewayOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      AuthorizationType: NONE
-      HttpMethod: OPTIONS
-      ResourceId: !Ref ApiGatewayResource
-      RestApiId: !Ref RestApiId
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
+Outputs:
+  ApiGatewayResource:
+    Value: !Ref ApiGatewayResource
