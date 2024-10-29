@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Api gateway
+Parameters:
+  ParentId:
+    Type: String
+  RestApiId:
+    Type: String
+  PathPart:
+    Type: String
+Resources:
+
+  ApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref ParentId
+      RestApiId: !Ref RestApiId
+      PathPart: !Ref PathPart
+  
+  ApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY  # Cambia esto al método HTTP que necesites
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref RestApiId
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: ANY  # Cambia esto al método HTTP que necesites
+        Uri: http://ito-dev-network-4cc45d4c275143f9.elb.us-east-1.amazonaws.com:9000/{proxy}
+        ConnectionType: VPC_LINK
+        ConnectionId: 28oy07  # Reemplaza con el ID de tu VPC Link
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestParameters:
+          integration.request.path.proxy: method.request.path.proxy
+        # RequestTemplates:
+        #   application/json: |
+        #     {
+        #       "statusCode": 200,
+        #       "body": $input.json('$')
+        #     }
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+
+  ApiGatewayOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref RestApiId
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true

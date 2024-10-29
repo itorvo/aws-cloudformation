@@ -87,7 +87,6 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Condition: requireService
     Properties:
-      HealthCheckPath: /
       HealthCheckIntervalSeconds: 5
       HealthCheckTimeoutSeconds: 2
       HealthCheckProtocol: TCP
@@ -180,10 +179,12 @@ Resources:
               - ${repositoryUri}:latest
               - repositoryUri: !GetAtt EcrRegistry.RepositoryUri
           Essential: true
-          # HealthCheck:
-          #   Command:
-          #     - CMD-SHELL
-          #     - curl -f http://localhost:8086/actuator/health
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - !Sub
+                - curl -f http://localhost:${port}/
+                - port: !Ref Port
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:

@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Api gateway
+Parameters:
+  DeploymentTime:
+    Type: String
+    Default: 0
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+    Default: dev
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+  ApiName:
+    Type: String
+    Default: test
+    AllowedPattern: ^([a-z]|[0-9])*$
+  TypeApi:
+    Type: String
+    Default: REGIONAL
+    AllowedValues:
+      - REGIONAL
+      - EDGE
+      - PRIVATE
+  DisableDefaultEndpoint:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  TracingXRay:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  DeployAPI:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+Conditions:
+  requireDeploy: !Equals [ true, !Ref DeployAPI ]
+Resources:
+  
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: !Ref ApiName
+      Name: !Sub ${Project}-${Environment}-api-rest-${ApiName}
+      EndpointConfiguration:
+        Types:
+          - !Ref TypeApi
+      ApiKeySourceType: HEADER
+      DisableExecuteApiEndpoint: !Ref DisableDefaultEndpoint
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ResourceProxy:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/api-rest-resource.yaml
+  #     Parameters:
+  #       ParentId: !GetAtt ApiGateway.RootResourceId
+  #       RestApiId: !Ref ApiGateway
+  #       PathPart: '{proxy+}'
+  
+  ResourceLambda:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/api-rest-rsrc-lambda.yaml
+      Parameters:
+        ParentId: !GetAtt ApiGateway.RootResourceId
+        RestApiId: !Ref ApiGateway
+        PathPart: 'lambda'
+
+  Deployment:
+    Type: Custom::ApiDeployment
+    Condition: requireDeploy
+    Properties:
+      ServiceToken:
+        Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
+      restApiId: !Ref ApiGateway
+      description: !Sub Deployment in ${DeploymentTime}
+      DeploymentTime: !Ref DeploymentTime
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Condition: requireDeploy
+    Properties:
+      DeploymentId: !Ref Deployment
+      RestApiId: !Ref ApiGateway
+      Description: Default Stage
+      StageName: !Ref Environment
+      # Variables:
+      #   nlb:
+      #     Fn::ImportValue:
+      #       !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns
+      # AccessLogSetting:
+      #   DestinationArn:
+      #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
+      #   Format: '{ "requestId": "$context.requestId", "DomainName": "$context.domainName", "SourceIp": "$context.identity.sourceIp", "APIId": "$context.apiId", "ip": "$context.identity.sourceIp", "caller": "$context.identity.caller", "user": "$context.identity.user", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath", "status": "$context.status", "protocol": "$context.protocol", "responseLength": "$context.responseLength", "Stage": "$context.stage", "errormessage": "$context.error.message", "errormessageString": "$context.error.messageString", "responseType": "$context.error.responseType", "identitycaller": "$context.identity.caller", "integrationerror": "$context.integration.error", "integrationintegrationStatus": "$context.integration.integrationStatus", "integrationErrorMessage": "$context.integrationErrorMessage", "integrationrequestId": "$context.integration.requestId", "EndpointRequestId": "$context.awsEndpointRequestId", "awsEndpointRequestId2": "$context.awsEndpointRequestId2", "clientCertserialNumber": "$context.identity.clientCert.serialNumber", "clientCertvaliditynotBefore": "$context.identity.clientCert.validity.notBefore", "clientCertvaliditynotAfter": "$context.identity.clientCert.validity.notAfter", "requestOverrideheadername": "$context.requestOverride.header.header_name", "requestOverridepathname": "$context.requestOverride.path.path_name", "responseOverrideheadername": "$context.responseOverride.header.header_name", "responseOverridestatus": "$context.responseOverride.status"}'
+      # MethodSettings:
+      #   - DataTraceEnabled: true
+      #     HttpMethod: '*'
+      #     LoggingLevel: INFO
+      #     MetricsEnabled: true
+      #     ResourcePath: /*
+      #     ThrottlingBurstLimit: 5000
+      #     ThrottlingRateLimit: 10000
+      TracingEnabled: !Ref TracingXRay
+Outputs:
+  ApiGatewayId:
+    Description: ApiGateway Id
+    Value: !Ref ApiGateway
+    Export:
+      Name: !Sub ${Project}-${Environment}-ApiGatewayId-test
+  ApiGatewayRootId:
+    Description: ApiGateway Root Id
+    Value: !GetAtt ApiGateway.RootResourceId
+    Export:
+      Name: !Sub ${Project}-${Environment}-ApiGatewayRootId-test
+  # ApiGatewayDefaultUri:
+  #   Description: ApiGateway Uri Default
+  #   Condition: requireDeploy
+  #   Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+  #   Export:
+  #     Name: !Sub ${Project}-${Environment}-ApiGatewayUriDefault
