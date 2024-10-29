@@ -81,6 +81,36 @@ Resources:
           Value: !Sub VPC-${Project}-${Environment}
 
 ## Grupos de Seguridad ##
+  LbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Project}-${Environment}-sgr-lb
+      GroupDescription: Access to the LoadBalancer
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-${Environment}-sgr-lb
+        - Key: Project
+          Value: !Sub ${Project}
+        - Key: Environment
+          Value: !Sub ${Environment}
+      VpcId: !Ref VPC
+  LbSecurityGroupIngressFromVPC:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from VPC services
+      GroupId: !Ref LbSecurityGroup
+      CidrIp: !Ref VPCCIDR
+      FromPort: 9000
+      ToPort: 9100
+      IpProtocol: tcp
+  LbSecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from other resource in self-sg
+      GroupId: !Ref LbSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref LbSecurityGroup
+
   SecurityGroupBackEnd:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -110,7 +140,14 @@ Resources:
       GroupId: !Ref SecurityGroupBackEnd
       IpProtocol: -1
       SourceSecurityGroupId: !Ref SecurityGroupBackEnd
-
+  EcsSecurityGroupIngressFromLb:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from lb-sg
+      GroupId: !Ref SecurityGroupBackEnd
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref LbSecurityGroup
+  
   SecurityGroupPublic:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -416,6 +453,11 @@ Outputs:
     Value: !Ref PrivateRouteTable
     Export:
       Name: !Sub ${Project}-${Environment}-PrivateRouteTable
+  LbSecurityGroup:
+    Description: Security Group Load Balancer
+    Value: !Ref LbSecurityGroup
+    Export:
+      Name: !Sub ${Project}-${Environment}-LoadBalancerSecurityGroup
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

@@ -54,6 +54,7 @@ Conditions:
       - !Condition CreateLoadBalancer
       - !Condition isPrivate
       - !Equals [ true, !Ref EnableVpcLink]
+  NotRequireSecurityGorup: !Equals [ gateway, !Ref TypeLoadBalancer ]
 Resources:
   Cluster:
     Type: AWS::ECS::Cluster
@@ -82,6 +83,12 @@ Resources:
         - Key: load_balancing.cross_zone.enabled
           Value: true
       Scheme: !If [ isPublic, internet-facing, internal ]
+      SecurityGroups:
+        - !If
+            - NotRequireSecurityGorup
+            - !Ref AWS::NoValue
+            - Fn::ImportValue:
+                !Sub ${Project}-${Environment}-LoadBalancerSecurityGroup
       Subnets:
         !If 
           - isPublic
