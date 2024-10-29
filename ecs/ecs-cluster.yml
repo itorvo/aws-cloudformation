@@ -145,8 +145,6 @@ Outputs:
     Export:
       Name: !Sub ${Project}-${Environment}-VpcLinkId
 
-      
-
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

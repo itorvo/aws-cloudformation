@@ -27,6 +27,7 @@ Parameters:
       - INTERNET
   VpcLinkConnectionId:
     Type: String
+    Default: None
   TypeIntegration:
     Type: String
     Default: HTTP_PROXY
@@ -43,6 +44,8 @@ Parameters:
     AllowedValues:
       - true
       - false
+  Uri:
+    Type: String
 Conditions:
   isConectionPrivate: !Equals [ VPC_LINK, !Ref ConnectionType ]
 
@@ -75,7 +78,7 @@ Resources:
       Integration:
         Type: !Ref TypeIntegration
         IntegrationHttpMethod: !Ref HttpMethod
-        Uri: http://ito-dev-network-4cc45d4c275143f9.elb.us-east-1.amazonaws.com:9000/{proxy}
+        Uri: !Ref Uri
         ConnectionType: !Ref ConnectionType
         ConnectionId: !If [ isConectionPrivate, !Ref VpcLinkConnectionId, !Ref AWS::NoValue ]
         PassthroughBehavior: WHEN_NO_MATCH
