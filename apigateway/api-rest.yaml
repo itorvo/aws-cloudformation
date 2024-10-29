@@ -80,7 +80,20 @@ Resources:
       Parameters:
         ParentId: !GetAtt ApiGateway.RootResourceId
         RestApiId: !Ref ApiGateway
-        PathPart: 'lambda'
+        PathPart: lambda
+        ArnLambda: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ito-dev-lambda-backend
+        HttpMethod: GET
+  
+  MethodOptionsResourceLambda:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/api-rest-method-options.yaml
+      Parameters:
+        RestApiId: !Ref ApiGateway
+        ResourceApiId: !GetAtt ResourceLambda.Outputs.ApiGatewayResource
+        AllowMethods: GET,OPTIONS
+        AllowHeaders: Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,data
+        AllowOrigin: "'*'"
 
   Deployment:
     Type: Custom::ApiDeployment

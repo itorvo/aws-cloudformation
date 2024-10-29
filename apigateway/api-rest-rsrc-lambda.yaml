@@ -7,6 +7,20 @@ Parameters:
     Type: String
   PathPart:
     Type: String
+  ArnLambda:
+    Type: String
+    AllowedPattern: ^(arn:(aws[a-zA-Z-]*)?:lambda:)?([a-z]{2}((-gov)|(-iso([a-z]?)))?-[a-z]+-\d{1}:)?(\d{12}:)?(function:)?([a-zA-Z0-9-_]+)(:(\$LATEST|[a-zA-Z0-9-_]+))?$
+  HttpMethod:
+    Type: String
+    Default: GET
+    AllowedValues:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - HEAD
+      - OPTIONS
 Resources:
 
   ApiGatewayResource:
@@ -20,7 +34,7 @@ Resources:
     Type: AWS::ApiGateway::Method
     Properties: 
       AuthorizationType: NONE
-      HttpMethod: GET
+      HttpMethod: !Ref HttpMethod
       ResourceId: !Ref ApiGatewayResource
       RestApiId: !Ref RestApiId
       RequestParameters:
@@ -30,7 +44,7 @@ Resources:
       Integration: 
         IntegrationHttpMethod: POST
         Type: AWS_PROXY
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ito-dev-lambda-backend/invocations
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArnLambda}/invocations
         RequestParameters:
           integration.request.querystring.limit: method.request.querystring.limit
           integration.request.querystring.page: method.request.querystring.page
@@ -42,30 +56,10 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ito-dev-lambda-backend
+      FunctionName: !Ref ArnLambda
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/*/${HttpMethod}/*
 
-  ApiGatewayOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      AuthorizationType: NONE
-      HttpMethod: OPTIONS
-      ResourceId: !Ref ApiGatewayResource
-      RestApiId: !Ref RestApiId
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,data'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
+Outputs:
+  ApiGatewayResource:
+    Value: !Ref ApiGatewayResource

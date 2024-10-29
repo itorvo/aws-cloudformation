@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Api gateway
+Parameters:
+  RestApiId:
+    Type: String
+  ResourceApiId:
+    Type: String
+  AllowMethods:
+    Type: String
+    Default: GET,OPTIONS
+    AllowedPattern: ^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)(,(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS))*$
+  AllowHeaders:
+    Type: String
+    Default: Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token
+  AllowOrigin:
+    Type: String
+    Default: "'*'"
+    
+Resources:
+
+  ApiGatewayOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ResourceApiId
+      RestApiId: !Ref RestApiId
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: !Sub "'${AllowHeaders}'"
+              method.response.header.Access-Control-Allow-Methods: !Sub "'${AllowMethods}'"
+              method.response.header.Access-Control-Allow-Origin: !Sub ${AllowOrigin}
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
