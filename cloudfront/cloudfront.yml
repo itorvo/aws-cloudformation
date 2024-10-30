@@ -153,20 +153,21 @@ Resources:
   #           Override: true
   #           Protection: true
   
-  Type: AWS::CertificateManager::Certificate
-    Properties:
-      # CertificateAuthorityArn: String
-      CertificateTransparencyLoggingPreference: DISABLED
-      DomainName: String
-      DomainValidationOptions: 
-        - DomainValidationOption
-      KeyAlgorithm: String
-      SubjectAlternativeNames: 
-        - String
-      Tags: 
-        - Tag
-      ValidationMethod: String
-  
+  # CertificateAuthorityArn:
+  #   Type: AWS::CertificateManager::Certificate
+  #     Properties:
+  #       # CertificateAuthorityArn: String
+  #       CertificateTransparencyLoggingPreference: DISABLED
+  #       DomainName: String
+  #       DomainValidationOptions: 
+  #         - DomainValidationOption
+  #       KeyAlgorithm: String
+  #       SubjectAlternativeNames: 
+  #         - String
+  #       Tags: 
+  #         - Tag
+  #       ValidationMethod: String
+    
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -264,6 +265,7 @@ Resources:
             - AcmCertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
               MinimumProtocolVersion: !Ref ProtocolVersion
               SslSupportMethod: sni-only
+  
   OAIBucketFrontDefault:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:

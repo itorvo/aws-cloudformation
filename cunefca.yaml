@@ -1,0 +1,747 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  'Plantilla despliegue base'
+Parameters:
+  appName:
+    Description: 'Nombre de la aplicacion que se desplegara'
+    Type: String
+  Environment:
+    Description: 'Nombre del ambiente'
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - per
+      - pdn    
+  owner:
+    Description: 'Nombre del creador'
+    Type: String          
+  DomainName:
+    Description: 'nombre del dominio'
+    Type: String
+    Default: 'bancadigital.com.co'  
+  containerPort:
+    Description: 'Puerto que expondr? el balanceador'
+    Type: Number
+  alarma:
+    Description: 'Porcentaje de cpu para escalar'
+    Type: Number
+  dynatrace:
+    Description: 'Se va a instalar dynatrace?'
+    Type: String        
+
+Mappings:
+  Environment:
+    dev:
+      VPCId: vpc-d08cb8b5 #vpc-d08cb8b5
+      subNet1: subnet-022d592465e52973e #sb-sherpa-docker-dev-c
+      subNet2: subnet-a4f462ec #sb-sherpa-docker-dev-d
+      dynatracetoken: "arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP:token::"
+      dynatraceurl: avm56454.live.dynatrace.com/api
+      HostedZoneId: "Z2QOG5UU6868W"
+      hostOpensearch: empty
+      Index: ecs-cunefca-flows-qa
+      policyfluent: arn:aws:iam::177333342796:policy/fluent-bit-qa
+      finacleSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:DEV/Finacle/TokenFinacle-hxAGJS
+      sherpaSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:DEV/SHERPA/DB/CUNEFCA-ETGfNO
+      dynatrace: arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP
+      repository: arn:aws:ecr:us-east-1:177333342796:repository/is-cunefca-dev*
+    qa:
+      VPCId: vpc-06c48695a5ed9061f #vpc-sherpa-docker-qa
+      subNet1: subnet-0fc83fdff429e8be7 #sb-sherpa-docker-qa-priv-1d
+      subNet2: subnet-0589fe743b17f4ebe #sb-sherpa-docker-qa-priv-1c
+      dynatraceurl: avm56454.live.dynatrace.com/api
+      dynatracetoken: "arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP:token::"
+      HostedZoneId: "Z2QOG5UU6868W" 
+      hostOpensearch: vpc-apt0002-os-qa-co-01-4kuslqpzvvaljguiyyjoq7wb6a.us-east-1.es.amazonaws.com
+      Index: ecs-cunefca-flows-qa
+      policyfluent: arn:aws:iam::177333342796:policy/fluent-bit-qa
+      finacleSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/Finacle/TokenFinacle-FEMyOg
+      sherpaSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/SHERPA/DB/CUNEFCA-27pBso
+      dynatrace: arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP
+      repository: arn:aws:ecr:us-east-1:177333342796:repository/is-cunefca-qa*
+    per:
+      VPCId: vpc-06c48695a5ed9061f #vpc-sherpa-docker-qa
+      subNet1: subnet-0fc83fdff429e8be7 #sb-sherpa-docker-qa-priv-1d
+      subNet2: subnet-0589fe743b17f4ebe #sb-sherpa-docker-qa-priv-1c
+      dynatraceurl: avm56454.live.dynatrace.com/api
+      dynatracetoken: "arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP:token::"
+      HostedZoneId: "Z2QOG5UU6868W" 
+      hostOpensearch: vpc-apt0002-os-qa-co-01-4kuslqpzvvaljguiyyjoq7wb6a.us-east-1.es.amazonaws.com
+      Index: ecs-cunefca-flows-per
+      policyfluent: arn:aws:iam::177333342796:policy/fluent-bit-qa     
+      finacleSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:PER/Finacle/TokenFinacle-pNdxMr
+      sherpaSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:PER/SHERPA/DB/CUNEFCA-9SkyFN
+      dynatrace: arn:aws:secretsmanager:us-east-1:177333342796:secret:QA/dynatrace/oneagent/ecs-8HSLaP
+      repository: arn:aws:ecr:us-east-1:177333342796:repository/is-cunefca-per*
+    pdn:
+      VPCId: vpc-988232e1 #vpc-sherpa-docker-pdn
+      subNet1: subnet-389a3162 #sb-sherpa-docker-pdn-priv-1d 
+      subNet2: subnet-25432b6d #sb-sherpa-docker-pdn-priv-1c
+      dynatracetoken: "arn:aws:secretsmanager:us-east-1:177333342796:secret:PDN/dynatrace/oneagent/ecs-ScXoEt:token::"
+      dynatraceurl: lqy04258.live.dynatrace.com/api
+      HostedZoneId: "Z2JB5ASIJ9X0AM"
+      hostOpensearch: vpc-apt0002-os-pdn-co-01-vdql7pb6ek2ue5jzm4y6xmcr4u.us-east-1.es.amazonaws.com
+      Index: ecs-cunefca-flows-pdn
+      policyfluent: arn:aws:iam::177333342796:policy/fluent-bit    
+      finacleSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:PDN/Finacle/TokenFinacle-YPA95A
+      sherpaSecrets: arn:aws:secretsmanager:us-east-1:177333342796:secret:PDN/SHERPA/DB/CUNEFCA-CXuLf8
+      dynatrace: arn:aws:secretsmanager:us-east-1:177333342796:secret:PDN/dynatrace/oneagent/ecs-ScXoEt
+      repository: arn:aws:ecr:us-east-1:177333342796:repository/is-cunefca-pdn*
+
+Conditions:
+  installdynatrace:
+    Fn::Equals: [!Ref dynatrace, "si"]
+  isqa:
+    Fn::Equals: [!Ref Environment, "qa"]
+  ispdn:
+    Fn::Equals: [!Ref Environment, "pdn"]  
+  installfluentbit:
+    Fn::Or: [!Condition isqa, !Condition ispdn]
+  SGPdn: 
+    Fn::Equals: [!Ref Environment, "pdn"]   
+
+Resources:
+  # Grupo de logs
+  cloudwachGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ["-", [cloudwatch, !Ref appName, !Ref Environment]]
+  # Rol para el task definitions ecs
+  ecsRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ ecs, !Ref appName, role, !Ref Environment]]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+  # Politica para ecs
+  ecsPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Join [ "-", [ ecs, !Ref appName, policy, !Ref Environment] ]
+      Roles:
+        - !Ref ecsRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'logs:PutLogEvents'
+              - 'secretsmanager:GetRandomPassword'
+              - 'logs:CreateLogStream'
+            Effect: Allow
+            Resource: '*'
+            # - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group*'
+          - Action:
+              - 'ecr:BatchGetImage'
+              - 'ecr:GetDownloadUrlForLayer'
+              - 'ecr:BatchCheckLayerAvailability'
+              - 'ecr:GetAuthorizationToken'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SecretsManagerPermissions
+            Effect: "Allow"
+            Action: 
+              - 'secretsmanager:GetSecretValue'
+              - 'secretsmanager:ListSecretVersionIds'
+              - 'secretsmanager:GetResourcePolicy'
+              - 'secretsmanager:DescribeSecret'
+              - 'secretsmanager:GetRandomPassword'
+            Resource:
+              -  !FindInMap [Environment, !Ref Environment, repository]
+              -  !FindInMap [Environment, !Ref Environment, finacleSecrets]
+              -  !FindInMap [Environment, !Ref Environment, sherpaSecrets]
+              -  !FindInMap [Environment, !Ref Environment, dynatrace]
+  taskRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ "-", [ task, !Ref appName, role, !Ref Environment]]
+      ManagedPolicyArns:
+       - !FindInMap [Environment, !Ref Environment, policyfluent]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+
+  taskPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Join [ "-", [ task, !Ref appName, policy, !Ref Environment]]
+      Roles:
+        - !Ref taskRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+            - 'secretsmanager:GetSecretValue'
+            Effect: Allow
+            Resource:
+              -  !FindInMap [Environment, !Ref Environment, finacleSecrets]
+              -  !FindInMap [Environment, !Ref Environment, sherpaSecrets]
+                
+  # ecs Security Group
+  ecsSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ["-",[securitygroup, !Ref appName, !Ref Environment]]
+      GroupDescription: 'Enable Port communication'
+      VpcId: !FindInMap [ Environment , !Ref Environment , VPCId ]
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref containerPort
+          ToPort: !Ref containerPort
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: icmp
+          FromPort: '-1'
+          ToPort: '-1'
+          CidrIp: '0.0.0.0/0'
+          
+  ecsSGpdn:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ["-",[security, group, !Ref appName, !Ref Environment]]
+      GroupDescription: 'Enable Port communication'
+      VpcId: !FindInMap [ Environment , !Ref Environment , VPCId ]
+      SecurityGroupIngress:
+        - CidrIp: 10.150.2.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.10.0.0/16
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.10.0.0/16
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.165.3.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.10.1.0/24
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.150.3.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.165.2.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.10.1.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.10.0.0/16
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: 10.10.1.0/24
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: 10.150.21.0/24
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - FromPort: 0
+          IpProtocol: tcp
+          ToPort: 0
+        - CidrIp: 10.5.92.10/32
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+        - CidrIp: 10.63.242.167/32
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080       
+
+  # ecs cluster
+  ecsCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Join [ "-", [ecs, integration, service, !Ref appName, !Ref Environment ]]
+      CapacityProviders:
+        - FARGATE
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  # task definition que se le asignara al servicio
+  taskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Join [ "-", [task, !Ref appName, !Ref Environment ]]
+      TaskRoleArn: !GetAtt taskRole.Arn
+      ExecutionRoleArn: !GetAtt ecsRole.Arn
+      NetworkMode: 'awsvpc'
+      Cpu: 512
+      Memory: 1024
+      RequiresCompatibilities:
+        - 'FARGATE'
+      ContainerDefinitions:
+        - Name: !Join ["-", [!Ref appName, !Ref Environment]]
+          Image: !Sub '177333342796.dkr.ecr.us-east-1.amazonaws.com/is-${appName}-${Environment}:latest'        
+          Environment:
+            - name: profile
+              value: !Ref Environment
+             # Se debe crear esta variable de dynatrace en el contenedor de la aplicacion
+            - name: LD_PRELOAD
+              value: /opt/dynatrace/oneagent/agent/lib64/liboneagentproc.so
+            - name: DB_DATABASE
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":dbname::"]]
+            - name: DB_DRIVER
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":engine::"]]
+            - name: DB_HOST
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":host::"]]
+            - name: DB_PASSWORD
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":password::"]]
+            - name: DB_PORT
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":port::"]]
+            - name: DB_USERNAME
+              value: !Join ["", [!FindInMap [Environment, !Ref Environment, sherpaSecrets], ":username::"]]
+          Essential: true        
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - !Sub 'curl -f http://localhost:${containerPort}/webjars/swagger-ui/index.html || exit 1'
+            StartPeriod: 120
+          PortMappings:
+            - ContainerPort: !Ref containerPort
+              HostPort: !Ref containerPort
+          LogConfiguration:
+             Fn::If:
+              - installfluentbit
+              - LogDriver: 'awsfirelens'
+                Options:
+                  Aws_Auth: !If [ isqa, "true", "On"]
+                  Aws_Region: !Sub ${AWS::Region}
+                  Host:  !FindInMap [Environment,  !Ref Environment, hostOpensearch]
+                  Index: !FindInMap [Environment, !Ref Environment, Index]
+                  Name: es
+                  Port: 443
+                  Type: doc
+                  tls: !If [ isqa, "true", "On"]
+              - LogDriver: awslogs
+                Options:
+                  awslogs-group: !Ref cloudwachGroup
+                  awslogs-region: !Sub ${AWS::Region}
+                  awslogs-stream-prefix: 'ecs'
+          DependsOn:
+            - Fn::If:
+              - installdynatrace
+              - Condition: COMPLETE
+                ContainerName: install-oneagent
+              - Ref: AWS::NoValue
+          MountPoints: 
+            - Fn::If:
+              - installdynatrace
+              - SourceVolume: "oneagent"
+                ContainerPath: "/opt/dynatrace/oneagent"
+              - Ref: AWS::NoValue
+        - Fn::If:
+          - installdynatrace
+          - Name: install-oneagent
+            Image: public.ecr.aws/docker/library/alpine:3
+            Memory: 128
+            Essential: false
+            EntryPoint:
+              - "/bin/sh"
+              - "-c"
+            Command:
+              - 'ARCHIVE=$(mktemp) && wget -O $ARCHIVE "$DT_API_URL/v1/deployment/installer/agent/unix/paas/latest?Api-Token=$DT_PAAS_TOKEN&$DT_ONEAGENT_OPTIONS" && unzip -o -d /opt/dynatrace/oneagent $ARCHIVE && rm -f $ARCHIVE'
+            Secrets:
+              - name: DT_PAAS_TOKEN
+                ValueFrom : !FindInMap [  Environment , !Ref Environment, dynatracetoken ]
+            Environment:
+              - name: DT_API_URL
+                value: !FindInMap [  Environment , !Ref Environment, dynatraceurl ]
+              - name: DT_ONEAGENT_OPTIONS
+                value: default
+            LogConfiguration:
+              LogDriver: 'awslogs'
+              Options:
+                awslogs-group: !Ref cloudwachGroup
+                awslogs-region: !Sub ${AWS::Region}
+                awslogs-stream-prefix: 'oneagent'
+            MountPoints:
+              - 
+                SourceVolume: "oneagent"
+                ContainerPath: "/opt/dynatrace/oneagent"
+          - Ref: AWS::NoValue
+        - Fn::If:
+          - installfluentbit
+          - Name: log_router
+            environment: []
+            essential: true
+            firelensConfiguration:
+              type: fluentbit
+            image: public.ecr.aws/aws-observability/aws-for-fluent-bit:init-latest
+            logConfiguration:
+              logDriver: awslogs
+              options:
+                awslogs-group: !Ref cloudwachGroup
+                awslogs-region: !Sub ${AWS::Region}
+                awslogs-stream-prefix: 'ecs'
+          - Ref: AWS::NoValue
+      Volumes: 
+        - Fn::If:
+          - installdynatrace
+          - Name: "oneagent"
+          - Ref: AWS::NoValue
+      Tags:
+        - Key: "env"
+          Value: !Ref Environment
+        - Key: "appName"
+          Value: !Ref appName
+        - Key: "owner"
+          Value: !Ref owner 
+         
+
+  # servicio para el cluster
+  ecsService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - NLBListenerHttps
+    Properties:
+      ServiceName: !Join ["-",[service, !Ref appName, !Ref Environment]]
+      LoadBalancers:
+        - ContainerName: !Join ["-", [!Ref appName, !Ref Environment]]
+          ContainerPort: !Ref containerPort
+          TargetGroupArn: !Ref NlbTargetGroup
+      Cluster: !Ref ecsCluster
+      DesiredCount: 2
+      LaunchType: 'FARGATE'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            Fn::If:
+              - SGPdn
+              - - !Ref ecsSGpdn
+              - - !Ref ecsSG             
+          Subnets:
+            - !FindInMap [  Environment , !Ref Environment, subNet1 ]
+            - !FindInMap [  Environment , !Ref Environment, subNet2 ]
+      TaskDefinition:
+        !Ref taskDefinition
+
+  # NLB http
+  NetworkLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: network
+      Name: !Join [ "-", [nlb, !Ref appName, !Ref Environment] ]
+      Subnets:
+        - !FindInMap [  Environment , !Ref Environment, subNet1 ]
+        - !FindInMap [  Environment , !Ref Environment, subNet2 ]
+      # configuracion de consumo interno (privado) con el valor "internal", consumo publico "internet-facing"
+      Scheme: internal
+
+  VpcLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Description: 'Vpc Link to  ApiGateway Banitsmo transfer - Cunefca'
+      Name: !Join [ "-", [ vpclink, !Ref appName, !Ref Environment ] ]
+      TargetArns:
+        - !Ref NetworkLoadBalancer
+  # api gateway banistmo transfer
+  KeyApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Description: Llave para Api Transferencias Banistmo
+      Enabled: true
+      Name: !Sub key-banistmo-transfers-gateway-${Environment}
+
+  UsagePlanApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn:
+      - DeploymentApiGatewayBanistmoTransfer
+    Properties:
+      Description: Plan de uso Api Transferencias Banistmo
+      UsagePlanName: !Sub BanitsmoApiGatewayUsagePlan${Environment}
+      ApiStages:
+        - ApiId: !Ref ApiGatewayBanistmoArchReturnTran
+          Stage: ApitransferbanistmoDeploy
+
+  UsagePlanKeyApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref KeyApiGatewayBanistmoTransfer
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlanApiGatewayBanistmoTransfer
+
+  ResourceApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayBanistmoArchReturnTran.RootResourceId
+      PathPart: !Sub banistmo-transfer-${Environment}
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+
+  DeploymentApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostMethodApiGatewayBanistmoTransfer
+    Properties:
+      Description: Apitransferbanistmo
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+      StageName: ApitransferbanistmoDeploy
+
+  PostMethodApiGatewayBanistmoTransfer:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: true
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionId: !Ref VpcLink
+        ConnectionType: VPC_LINK
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        Type: HTTP_PROXY
+        Uri: !Sub https://lbecs${appName}${Environment}.${DomainName}:8602/api/V2/money/purchaseCancellation
+      ResourceId: !Ref ResourceApiGatewayBanistmoTransfer
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+  # api gateway banistmoArchReturnTran
+  ApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: Api para la operacion Arch Return tran
+      EndpointConfiguration:
+        Types:
+          - PRIVATE
+      Name: !Sub BanistmoArchReturnTranGateway-${Environment}
+      DisableExecuteApiEndpoint: false
+      ApiKeySourceType: HEADER
+      Policy:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: 'execute-api:Invoke'
+            Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*'
+
+  KeyApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Description: Llave para Api para la reversi?n de transacciones T004
+      Enabled: true
+      Name: !Sub key-banistmo-archreturn-tran-gateway-${Environment}
+
+  UsagePlanApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn:
+      - DeploymentApiGatewayBanistmoArchReturnTran
+    Properties:
+      Description: Plan de uso Api para la reversi?n de transacciones T004
+      UsagePlanName: !Sub BanistmoArchReturnTranUsagePlan${Environment}
+      ApiStages:
+        - ApiId: !Ref ApiGatewayBanistmoArchReturnTran
+          Stage: ApiBanistmoArchReturnTranDeploy
+
+  UsagePlanKeyApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref KeyApiGatewayBanistmoArchReturnTran
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlanApiGatewayBanistmoArchReturnTran
+
+  ResourceApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayBanistmoArchReturnTran.RootResourceId
+      PathPart: banistmo-ach-return-transaction
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+
+  DeploymentApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostMethodApiGatewayBanistmoArchReturnTran
+    Properties:
+      Description: ApiBanistmoArchReturnTran
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+      StageName: ApiBanistmoArchReturnTranDeploy
+
+  PostMethodApiGatewayBanistmoArchReturnTran:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: true
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionId: !Ref VpcLink
+        ConnectionType: VPC_LINK
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        Type: HTTP_PROXY
+        Uri: !Sub https://lbecs${appName}${Environment}.${DomainName}:8594/api/V2/transfer/achReturnTran
+      ResourceId: !Ref ResourceApiGatewayBanistmoArchReturnTran
+      RestApiId: !Ref ApiGatewayBanistmoArchReturnTran
+
+  NLBCertificateDomain:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: !Sub lbecs${appName}${Environment}.${DomainName}
+      ValidationMethod: DNS
+
+  NLBListenerHttps:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref NlbTargetGroup
+      Certificates:
+        - CertificateArn: !Ref NLBCertificateDomain
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Port: 443
+      Protocol: TLS
+
+  Route53RecordSetGroup:
+    Type: AWS::Route53::RecordSetGroup
+    DependsOn:
+      - NetworkLoadBalancer
+    Properties:
+      HostedZoneId: !FindInMap [Environment, !Ref Environment, HostedZoneId ]
+      RecordSets:
+        - Name:
+            Fn::Sub: lbecs${appName}${Environment}.${DomainName}
+          Type: A
+          AliasTarget:
+            HostedZoneId: !GetAtt NetworkLoadBalancer.CanonicalHostedZoneID
+            DNSName: !GetAtt NetworkLoadBalancer.DNSName
+
+  NlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Join [ "-", [ is, lb-trg, !Ref appName, !Ref Environment]]
+      VpcId: !FindInMap [ Environment , !Ref Environment , VPCId ]
+      Port: !Ref containerPort
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 2
+      HealthyThresholdCount: 2
+      HealthCheckIntervalSeconds: 30
+
+  parserAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [application-autoscaling.amazonaws.com]
+            Action: ["sts:AssumeRole"]
+      Path: /
+      Policies:
+        - PolicyName: service-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: ["application-autoscaling:*", "cloudwatch:DescribeAlarms", "cloudwatch:PutMetricAlarm",
+                         "ecs:DescribeServices", "ecs:UpdateService"]
+                Resource: "*"
+
+  parserTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Join ["/", [service, !Ref "ecsCluster", !GetAtt [ecsService, Name]]]
+      RoleARN: !GetAtt [ parserAutoScalingRole, Arn ]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ScaleUp:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ParserPolicyUp
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref parserTarget
+      StepScalingPolicyConfiguration:
+        Cooldown: 60
+        MetricAggregationType: "Average"
+        AdjustmentType: "ChangeInCapacity"
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 5
+            ScalingAdjustment: 1
+          - MetricIntervalLowerBound: 5
+            ScalingAdjustment: 2
+
+  ScaleDown:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ParserPolicyDown
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref parserTarget
+      StepScalingPolicyConfiguration:
+        Cooldown: 60
+        MetricAggregationType: Average
+        AdjustmentType: ChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalUpperBound: -1
+            MetricIntervalLowerBound: -5
+            ScalingAdjustment: -1
+          - MetricIntervalUpperBound: -5
+            ScalingAdjustment: -2
+
+  AutoScalingCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub Scale-up if CPU > ${alarma} % for 10 seconds two times
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: '10'
+      EvaluationPeriods: '2'
+      Threshold: !Ref alarma
+      AlarmActions:
+        - Ref: ScaleUp
+        - Ref: ScaleDown
+      OKActions:
+        - Ref: ScaleUp
+        - Ref: ScaleDown
+      Dimensions:
+        - Name: ServiceName
+          Value: !GetAtt ecsService.Name
+        - Name: ClusterName
+          Value:
+            Ref: ecsCluster
+      ComparisonOperator: GreaterThanThreshold     
+
+Outputs:
+  ecsCluster:
+    Description: "cluster de la solucion"
+    Value: !Ref ecsCluster
+    Export:
+      Name: !Sub "ecs-integration-service-${appName}-${Environment}"
+
+  NetworkLoadBalancer:
+    Description: "certificado de la solucion"
+    Value: !Ref NetworkLoadBalancer
+    Export:
+      Name: !Sub "nlb-${appName}-${Environment}"
+
+  NLBCertificateDomain:
+    Description: "certificado de la solucion"
+    Value: !Ref NLBCertificateDomain
+    Export:
+      Name: !Sub "lbecs${appName}${Environment}"
