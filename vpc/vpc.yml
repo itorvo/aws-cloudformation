@@ -110,6 +110,13 @@ Resources:
       GroupId: !Ref LbSecurityGroup
       IpProtocol: -1
       SourceSecurityGroupId: !Ref LbSecurityGroup
+  LbSecurityGroupIngressFromAny:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from any location
+      GroupId: !Ref LbSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: -1
 
   SecurityGroupBackEnd:
     Type: AWS::EC2::SecurityGroup

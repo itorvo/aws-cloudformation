@@ -79,7 +79,12 @@ Resources:
   #         Fn::ImportValue:
   #           !Sub ${Project}-${Environment}-VpcLinkId
   #       TypeIntegration: HTTP_PROXY
-  #       Uri: http://ito-dev-network-49e2cd7b0ef0eea1.elb.us-east-1.amazonaws.com:9000/{proxy}
+  #       Uri:
+  #         !Sub
+  #           - http://${nlbDomainName}:9000/{proxy}
+  #           - nlbDomainName:
+  #               Fn::ImportValue:
+  #                 !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns
   #       ValidateRequestBody: true
   #       ValidateRequestParameters: true
   
@@ -144,40 +149,40 @@ Resources:
   #       AllowHeaders: Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,data
   #       AllowOrigin: "'*'"
 
-  # Deployment:
-  #   Type: Custom::ApiDeployment
-  #   Condition: requireDeploy
-  #   Properties:
-  #     ServiceToken:
-  #       Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
-  #     restApiId: !Ref ApiGateway
-  #     description: !Sub Deployment in ${DeploymentTime}
-  #     DeploymentTime: !Ref DeploymentTime
-  # Stage:
-  #   Type: AWS::ApiGateway::Stage
-  #   Condition: requireDeploy
-  #   Properties:
-  #     DeploymentId: !Ref Deployment
-  #     RestApiId: !Ref ApiGateway
-  #     Description: Default Stage
-  #     StageName: !Ref Environment
-  #     # Variables:
-  #     #   nlb:
-  #     #     Fn::ImportValue:
-  #     #       !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns
-  #     # AccessLogSetting:
-  #     #   DestinationArn:
-  #     #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
-  #     #   Format: '{ "requestId": "$context.requestId", "DomainName": "$context.domainName", "SourceIp": "$context.identity.sourceIp", "APIId": "$context.apiId", "ip": "$context.identity.sourceIp", "caller": "$context.identity.caller", "user": "$context.identity.user", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath", "status": "$context.status", "protocol": "$context.protocol", "responseLength": "$context.responseLength", "Stage": "$context.stage", "errormessage": "$context.error.message", "errormessageString": "$context.error.messageString", "responseType": "$context.error.responseType", "identitycaller": "$context.identity.caller", "integrationerror": "$context.integration.error", "integrationintegrationStatus": "$context.integration.integrationStatus", "integrationErrorMessage": "$context.integrationErrorMessage", "integrationrequestId": "$context.integration.requestId", "EndpointRequestId": "$context.awsEndpointRequestId", "awsEndpointRequestId2": "$context.awsEndpointRequestId2", "clientCertserialNumber": "$context.identity.clientCert.serialNumber", "clientCertvaliditynotBefore": "$context.identity.clientCert.validity.notBefore", "clientCertvaliditynotAfter": "$context.identity.clientCert.validity.notAfter", "requestOverrideheadername": "$context.requestOverride.header.header_name", "requestOverridepathname": "$context.requestOverride.path.path_name", "responseOverrideheadername": "$context.responseOverride.header.header_name", "responseOverridestatus": "$context.responseOverride.status"}'
-  #     # MethodSettings:
-  #     #   - DataTraceEnabled: true
-  #     #     HttpMethod: '*'
-  #     #     LoggingLevel: INFO
-  #     #     MetricsEnabled: true
-  #     #     ResourcePath: /*
-  #     #     ThrottlingBurstLimit: 5000
-  #     #     ThrottlingRateLimit: 10000
-  #     TracingEnabled: !Ref TracingXRay
+  Deployment:
+    Type: Custom::ApiDeployment
+    Condition: requireDeploy
+    Properties:
+      ServiceToken:
+        Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
+      restApiId: !Ref ApiGateway
+      description: !Sub Deployment in ${DeploymentTime}
+      DeploymentTime: !Ref DeploymentTime
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Condition: requireDeploy
+    Properties:
+      DeploymentId: !Ref Deployment
+      RestApiId: !Ref ApiGateway
+      Description: Default Stage
+      StageName: !Ref Environment
+      # Variables:
+      #   nlb:
+      #     Fn::ImportValue:
+      #       !Sub ${Project}-${Environment}-NetWorkLoadBalancerDns
+      # AccessLogSetting:
+      #   DestinationArn:
+      #     Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ProcessRefound:*
+      #   Format: '{ "requestId": "$context.requestId", "DomainName": "$context.domainName", "SourceIp": "$context.identity.sourceIp", "APIId": "$context.apiId", "ip": "$context.identity.sourceIp", "caller": "$context.identity.caller", "user": "$context.identity.user", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath", "status": "$context.status", "protocol": "$context.protocol", "responseLength": "$context.responseLength", "Stage": "$context.stage", "errormessage": "$context.error.message", "errormessageString": "$context.error.messageString", "responseType": "$context.error.responseType", "identitycaller": "$context.identity.caller", "integrationerror": "$context.integration.error", "integrationintegrationStatus": "$context.integration.integrationStatus", "integrationErrorMessage": "$context.integrationErrorMessage", "integrationrequestId": "$context.integration.requestId", "EndpointRequestId": "$context.awsEndpointRequestId", "awsEndpointRequestId2": "$context.awsEndpointRequestId2", "clientCertserialNumber": "$context.identity.clientCert.serialNumber", "clientCertvaliditynotBefore": "$context.identity.clientCert.validity.notBefore", "clientCertvaliditynotAfter": "$context.identity.clientCert.validity.notAfter", "requestOverrideheadername": "$context.requestOverride.header.header_name", "requestOverridepathname": "$context.requestOverride.path.path_name", "responseOverrideheadername": "$context.responseOverride.header.header_name", "responseOverridestatus": "$context.responseOverride.status"}'
+      # MethodSettings:
+      #   - DataTraceEnabled: true
+      #     HttpMethod: '*'
+      #     LoggingLevel: INFO
+      #     MetricsEnabled: true
+      #     ResourcePath: /*
+      #     ThrottlingBurstLimit: 5000
+      #     ThrottlingRateLimit: 10000
+      TracingEnabled: !Ref TracingXRay
 Outputs:
   ApiGatewayId:
     Description: ApiGateway Id
