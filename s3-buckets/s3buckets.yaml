@@ -100,6 +100,21 @@ Resources:
           Value: !Ref Project
         - Key: Descripcion
           Value: Almacenar los archivos cargados mediante SFTP
+  BucketCloudFormation:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${AWS::AccountId}-cloudformation
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Descripcion
+          Value: Almacenar los archivos de plantillas de CloudFormation
   # BucketSFTPTestPolicy:
   #   Type: AWS::S3::BucketPolicy
   #   Properties:
