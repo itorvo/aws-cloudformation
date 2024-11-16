@@ -16,9 +16,9 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1  # Reemplaza con tu región
-      - name: Subir archivos a S3
-        uses: aws-actions/aws-s3@v2
+      - name: Upload files to S3 bucket
+        uses: EndBug/add-and-commit@v9
         with:
-          bucket: ito-437950194672-cloudformation
-          region: us-east-1
-          files: '/**'
+          message: Add files to commit
+        run: |
+          aws s3 cp . s3://ito-437950194672-cloudformation

@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Portal Web
+Parameters:
+  Environment:
+    Description: Ambiente en que está siendo desplegado el stack
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+    Default: dev
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+  LambdaName:
+    Type: String
+    Default: lambda-name
+    # AllowedPattern: ^([a-z]|[0-9])*$
+  ApplyEgde:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  Description:
+    Type: String
+    Default: Lambda function
+    Nullable: true
+  FunctionHandler:
+    Type: String
+    Default: index.handler
+    Nullable: false
+  MemorySize:
+    Type: Number
+    Default: 128
+    MinValue: 128
+    MaxValue: 10240
+  Runtime:
+    Type: String
+    Default: nodejs16.x
+    AllowedValues:
+      - nodejs10.x
+      - nodejs12.x
+      - nodejs14.x
+      - nodejs16.x
+      - python3.8
+      - python3.9
+      - ruby2.7
+      - java11
+      - java8.al2
+      - dotnetcore3.1
+      - dotnetcore2.1
+      - go1.x
+      - provided
+  PackageType:
+    Type: String
+    Default: Zip
+    AllowedValues:
+      - Zip
+      - Image
+  TracingConfig:
+    Type: String
+    Default: PassThrough
+    AllowedValues:
+      - Active
+      - PassThrough
+  EnvironmentVariables:
+    Type: Map
+    Nullable: true
+  S3Bucket:
+    Type: String
+    Nullable: true
+  S3Key:
+    Type: String
+    Nullable: true
+  ImageUri:
+    Type: String
+    Nullable: true
+Conditions:
+  requireEdge: !Equals [true, !Ref ApplyEgde]
+  isZip: !Equals [Zip, !Ref PackageType]
+Resources:
+  RoleLambda:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - !If [
+                    requireEdge,
+                    edgelambda.amazonaws.com,
+                    !Ref "AWS::NoValue",
+                  ]
+            Action: sts:AssumeRole
+      Description: !Sub Rol para la lambda lambda-${LambdaName}
+      MaxSessionDuration: 3600
+      RoleName: !Sub ${Project}-${Environment}-role-${LambdaName}
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ImageUri: !If [ isZip, !Ref AWS::NoValue, !Ref S3Bucket ]
+        S3Bucket: !If [ isZip, !Ref S3Bucket, !Ref AWS::NoValue ]
+        S3Key: !If [ isZip, !Ref S3Key, !Ref AWS::NoValue ]
+        # ZipFile: |
+        #   const { S3Client, ListBucketsCommand } = require("@aws-sdk/client-s3");
+        #   const s3 = new S3Client({ region: "us-east-1" }); // replace "us-east-1" with your AWS Region
+
+        #   exports.handler = async function(event) {
+        #     const command = new ListBucketsCommand({});
+        #     const response = await s3.send(command);
+        #     console.log(response)
+        #     return response.Buckets;
+        #   };
+      Description: !Ref ${Description}
+      Environment:
+        Variables: !Ref ${EnvironmentVariables}
+      FunctionName: !Sub ${Project}-${Environment}-lambda-${LambdaName}
+      Handler: !Ref ${FunctionHandler}
+      MemorySize: !Ref ${MemorySize}
+      Role: !GetAtt RoleLambda.Arn
+      Runtime: !Ref ${Runtime}
+      Timeout: 5
+      PackageType: !Ref ${PackageType}
+      TracingConfig:
+        Mode: !Ref ${TracingConfig}
+      LoggingConfig:
+        LogGroupName: !Ref LogGroup
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Project}-${Environment}-lambda-${LambdaName}
+      RetentionInDays: 1
