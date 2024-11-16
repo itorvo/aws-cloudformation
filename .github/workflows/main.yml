@@ -2,7 +2,7 @@ name: Subir archivos a S3
 
 on:
   push:
-    branches: [ main ]
+    branches: [ develop ]
 
 jobs:
   build:
