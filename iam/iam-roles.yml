@@ -288,6 +288,25 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
         - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+  
+  RoleStepsFunctions:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-role-step-functions
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
+        - arn:aws:iam::aws:policy/AmazonECS_FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -369,6 +388,16 @@ Outputs:
     Value: !GetAtt RoleNodeInstanceProfile.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleNodeInstanceProfileArn
+  RoleStepsFunctions:
+    Description: Steps Functions Role Name
+    Value: !Ref RoleStepsFunctions
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleStepsFunctions
+  RoleStepsFunctionsArn:
+    Description: Steps Functions Role Arn
+    Value: !GetAtt RoleStepsFunctions.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleStepsFunctionsArn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
