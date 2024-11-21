@@ -307,6 +307,21 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
         - arn:aws:iam::aws:policy/AdministratorAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+  
+  RoleEventBridgeRule:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Project}-${Environment}-role-event-bridge
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
 Outputs:
   ECSTaskExecutionRole:
     Description: ECS Task Execution Role Name
@@ -398,6 +413,16 @@ Outputs:
     Value: !GetAtt RoleStepsFunctions.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-RoleStepsFunctionsArn
+  RoleEventBridgeRule:
+    Description: EventBridge Rule Role Name
+    Value: !Ref RoleEventBridgeRule
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleEventBridgeRule
+  RoleEventBridgeRuleArn:
+    Description: Steps Functions Role Arn
+    Value: !GetAtt RoleEventBridgeRule.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-RoleEventBridgeRuleArn
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 
