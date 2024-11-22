@@ -56,10 +56,31 @@ Parameters:
     AllowedValues:
       - false
       - true
+  AgentXRay:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  AgentCloudWatch:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  AgentDataDog:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
 Conditions:
   requireDiscoveryService: !Equals [ true, !Ref EnableDiscoveryService ]
   isProduction: !Equals [ pdn, !Ref Environment ]
   requireService: !Equals [ true, !Ref CreateService ]
+  enablexray: !Equals [ true, !Ref AgentXRay ]
+  enablecloudwatch: !Equals [ true, !Ref AgentCloudWatch ]
+  enabledatadog: !Equals [ true, !Ref AgentDataDog ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
@@ -140,22 +161,44 @@ Resources:
         Fn::ImportValue:
           !Sub "${Project}-${Environment}-ECSTaskRoleArn"
       ContainerDefinitions:
-        - Name: !Sub ${Project}-${Environment}-xray-daemon
-          Image:
-            Fn::ImportValue:
-              !Sub ${Project}-${Environment}-EcrXRayUri
-          # Cpu: 32
-          # MemoryReservation: 256
-          Essential: false
-          PortMappings:
-            - ContainerPort: 2000
-              Protocol: udp
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref CloudWatchLogsGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: ecs
+        - !If
+          - enablexray
+          -
+            Name: !Sub ${Project}-${Environment}-xray-daemon
+            Image:
+              Fn::ImportValue:
+                !Sub ${Project}-${Environment}-EcrXRayUri
+            # Cpu: 32
+            # MemoryReservation: 256
+            Essential: false
+            PortMappings:
+              - ContainerPort: 2000
+                Protocol: udp
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+          - !Ref AWS::NoValue
+        - !If
+          - enablecloudwatch
+          -
+            Name: cloudwatch-agent
+            Image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest
+            Essential: false
+            Secrets:
+              - Name: CW_CONFIG_CONTENT
+                ValueFrom:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-XRayAgentConfigArn
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+          - !Ref AWS::NoValue
         - Name: !Sub "${Project}-${Environment}-${MicroServiceName}-container"
           # EnvironmentFiles:
           #   - Type: s3
@@ -193,7 +236,6 @@ Resources:
               awslogs-group: !Ref CloudWatchLogsGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
-  
   ECSService:
     Type: AWS::ECS::Service
     Condition: requireService
@@ -266,6 +308,12 @@ Metadata:
           - CPU
           - RAM
           - NumberTask
+      - Label:
+          default: Agentes
+        Parameters:
+          - AgentXRay
+          - AgentCloudWatch
+          - AgentDataDog
       - Label: 
           default: Componentes Adicionales
         Parameters: 
@@ -289,3 +337,9 @@ Metadata:
         default: Número de Tareas
       EnableDiscoveryService:
         default: Habilitar DNS Privado
+      AgentXRay:
+        default: Activar Agente XRay
+      AgentCloudWatch:
+        default: Activar Agente CloudWatch
+      AgentDataDog:
+        default: Activar Agente DataDog

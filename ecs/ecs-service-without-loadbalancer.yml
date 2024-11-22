@@ -38,7 +38,6 @@ Parameters:
     Default: 0
     MinValue: 0
     MaxValue: 2
-
   EnableDiscoveryService:
     Type: String
     Default: false
@@ -55,9 +54,30 @@ Parameters:
     Type: String
     Default: 1
     AllowedPattern: ^[1|3|5|7|14|30]?
+  AgentXRay:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  AgentCloudWatch:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  AgentDataDog:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
 Conditions:
   CDiscoveryService: !Equals [ "true", !Ref EnableDiscoveryService ]
   isPublic: !Equals [ ENABLED, !Ref PublicIp ]
+  enablexray: !Equals [ true, !Ref AgentXRay ]
+  enablecloudwatch: !Equals [ true, !Ref AgentCloudWatch ]
+  enabledatadog: !Equals [ true, !Ref AgentDataDog ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
@@ -103,35 +123,44 @@ Resources:
         Fn::ImportValue:
           !Sub ${Project}-${Environment}-ECSTaskRoleArn
       ContainerDefinitions:
-        - Name: !Sub ${Project}-${Environment}-xray-daemon
-          Image:
-            Fn::ImportValue:
-              !Sub ${Project}-${Environment}-EcrXRayUri
-          # Cpu: 32
-          # MemoryReservation: 256
-          Essential: false
-          PortMappings:
-            - ContainerPort: 2000
-              Protocol: udp
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref CloudWatchLogsGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: ecs
-        # - Name: cloudwatch-agent
-        #   Image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest
-        #   Secrets:
-        #     - Name: CW_CONFIG_CONTENT
-        #       ValueFrom:
-        #         Fn::ImportValue:
-        #           !Sub ${Project}-${Environment}-XRayAgentConfigArn
-        #   LogConfiguration:
-        #     LogDriver: awslogs
-        #     Options:
-        #       awslogs-group: !Ref CloudWatchLogsGroup
-        #       awslogs-region: !Ref AWS::Region
-        #       awslogs-stream-prefix: ecs
+        - !If
+          - enablexray
+          -
+            Name: !Sub ${Project}-${Environment}-xray-daemon
+            Image:
+              Fn::ImportValue:
+                !Sub ${Project}-${Environment}-EcrXRayUri
+            # Cpu: 32
+            # MemoryReservation: 256
+            Essential: false
+            PortMappings:
+              - ContainerPort: 2000
+                Protocol: udp
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+          - !Ref AWS::NoValue
+        - !If
+          - enablecloudwatch
+          -
+            Name: cloudwatch-agent
+            Image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest
+            Essential: false
+            Secrets:
+              - Name: CW_CONFIG_CONTENT
+                ValueFrom:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-XRayAgentConfigArn
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+          - !Ref AWS::NoValue
         - Name: !Sub ${Project}-${Environment}-${MicroServiceName}-container
           # EnvironmentFiles:
           #   - Type: s3
@@ -219,6 +248,16 @@ Metadata:
           - NumberTask
           - DayRetentionLogs
           - PublicIp
+      - Label:
+          default: Agentes
+        Parameters:
+          - AgentXRay
+          - AgentCloudWatch
+          - AgentDataDog
+      - Label:
+          default: Componentes Adicionales
+        Parameters:
+          - enableDiscoveryService
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
@@ -240,3 +279,9 @@ Metadata:
         default: Asignar IP Publica
       DayRetentionLogs:
         default: Cantidad de dias de almacenamiento de logs
+      AgentXRay:
+        default: Activar Agente XRay
+      AgentCloudWatch:
+        default: Activar Agente CloudWatch
+      AgentDataDog:
+        default: Activar Agente DataDog
