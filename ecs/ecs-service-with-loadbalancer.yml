@@ -74,6 +74,14 @@ Parameters:
     AllowedValues:
       - false
       - true
+  EcrEncrytion:
+    Type: String
+    Default: KMS
+    AllowedValues:
+      - AES256
+      - KMS
+  EcrKmsKey:
+    Type: String
 Conditions:
   requireDiscoveryService: !Equals [ true, !Ref EnableDiscoveryService ]
   isProduction: !Equals [ pdn, !Ref Environment ]
@@ -81,10 +89,18 @@ Conditions:
   enablexray: !Equals [ true, !Ref AgentXRay ]
   enablecloudwatch: !Equals [ true, !Ref AgentCloudWatch ]
   enabledatadog: !Equals [ true, !Ref AgentDataDog ]
+  isEcrKmsKeyProvided: !Not [ !Equals [ !Ref EcrKmsKey, "" ] ]
 Resources:
   EcrRegistry:
     Type: AWS::ECR::Repository
     Properties: 
+      EmptyOnDelete: true
+      EncryptionConfiguration:
+        EncryptionType: !Ref EcrEncrytion
+        KmsKey: !If [ isEcrKmsKeyProvided, !Ref EcrKmsKey, !Ref AWS::NoValue ]
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      ImageTagMutability: MUTABLE
       RepositoryName: !Sub ${Project}-${Environment}-${MicroServiceName}
 
   DiscoveryService:
@@ -225,9 +241,11 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - !Sub
-                - curl -f http://localhost:${port}/
-                - port: !Ref Port
+              - !Sub curl -f http://localhost:${Port}/ | exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 150
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
@@ -314,6 +332,11 @@ Metadata:
           - AgentXRay
           - AgentCloudWatch
           - AgentDataDog
+      - Label:
+          default: Cifrado de Imagen Docker
+        Parameters:
+          - EcrEncrytion
+          - EcrKmsKey
       - Label: 
           default: Componentes Adicionales
         Parameters: 
@@ -343,3 +366,7 @@ Metadata:
         default: Activar Agente CloudWatch
       AgentDataDog:
         default: Activar Agente DataDog
+      EcrEncrytion:
+        default: Tipo de Cifrado
+      EcrKmsKey:
+        default: KMS Key
