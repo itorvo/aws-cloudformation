@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Crear Politica de Bucket
+Parameters:
+  BucketName:
+    Type: String
+    AllowedPattern: ^([a-z]|[0-9])*$
+  PrincipalArn:
+    Type: String
+Resources:
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref PrincipalArn
+            Action:
+              - s3:GetObject
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+    
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label:
+          default: Datos del Bucket
+        Parameters:
+          - BucketName
+          - PrincipalArn
+    ParameterLabels:
+      BucketName:
+        default: Nombre del bucket
+      PrincipalArn:
+        default: ARN del principal

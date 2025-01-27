@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Portal Web
+Parameters:
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+  Environment:
+    Description: Ambiente en que está siendo desplegado el stack
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+    Default: dev
+  CustomDomainFront:
+    Description: Custom Domain Distribution
+    Type: String
+    Default: "NO"
+    AllowedPattern: (NO)|((^https:\/\/)(\w*\d*)((.pragma.com.co)))
+  CertificateKey:
+    Description: Key del Certificado SSL
+    Type: String
+    Default: "NO"
+    AllowedPattern: (NO)|((\w|\d){8})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){4})\-((\w|\d){12})
+  DomainBack:
+    Type: String
+    Default: "NO"
+    AllowedPattern: (NO)|((^api)\.(\w*\d*)((.pragma.com.co)))
+Resources:
+  PolicyResponseHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties: 
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${Project}PolicyHeadersSeguridad${Project}${Environment}
+        Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
+        CorsConfig: 
+          AccessControlAllowCredentials: true
+          AccessControlAllowHeaders: 
+            Items:
+              - 'x-permitted-cross-domain-policies'
+              - 'Cache-Control'
+              - 'Pragma'
+              - 'Server'
+          AccessControlAllowMethods: 
+            Items: 
+              - GET
+              - HEAD
+          AccessControlAllowOrigins:
+            Items:
+              - !Sub https://${CustomDomainFront}
+          AccessControlMaxAgeSec: 600
+          OriginOverride: true
+        CustomHeadersConfig:
+          Items:
+            - Header: x-permitted-cross-domain-policies
+              Override: true
+              Value: none
+            - Header: Cache-Control
+              Override: true
+              Value: no-store
+            - Header: Pragma
+              Override: true
+              Value: no-cache
+            - Header: Server
+              Override: true
+              Value: '-'
+            - Header: Permissions-Policy
+              Override: true
+              Value: !Sub 'fullscreen=(self "https://${CustomDomainFront}")'
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: same-origin
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+            Preload: true
+          XSSProtection:
+            ModeBlock: true
+            Override: true
+            Protection: true
+  
+  # CertificateAuthorityArn:
+  #   Type: AWS::CertificateManager::Certificate
+  #     Properties:
+  #       # CertificateAuthorityArn: String
+  #       CertificateTransparencyLoggingPreference: DISABLED
+  #       DomainName: String
+  #       DomainValidationOptions: 
+  #         - DomainValidationOption
+  #       KeyAlgorithm: String
+  #       SubjectAlternativeNames: 
+  #         - String
+  #       Tags: 
+  #         - Tag
+  #       ValidationMethod: String
+  

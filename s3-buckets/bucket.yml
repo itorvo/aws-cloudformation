@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create S3 Buckets assets, pinpoint and formatos
+Parameters:
+  # KMSS3KeyId:
+  #   Description: Id del Key de KMS para S3
+  #   Type: String
+  #   Default: AWS-S3-key
+  Project:
+    Type: String
+    Default: ito
+    AllowedPattern: ^([a-z]|[0-9])*$
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+  Name:
+    Type: String
+    AllowedPattern: ^([a-z]|[0-9])*$
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketName: !Sub ${Project}-${Environment}-${AWS::AccountId}-${Name}
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      # BucketEncryption:
+      #   ServerSideEncryptionConfiguration:
+      #     - BucketKeyEnabled: true
+      #       ServerSideEncryptionByDefault:
+      #         KMSMasterKeyID:
+      #           Fn::Sub:
+      #             - arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSS3KeyId}
+      #             - KMSS3KeyId:
+      #                 Ref: KMSS3KeyId
+      #         SSEAlgorithm: aws:kms
+Outputs:
+  Name:
+    Description: Nombre del bucket
+    Value: !Ref Bucket
+  Arn:
+    Description: Arn del bucket
+    Value: !GetAtt Bucket.Arn
+  DomainName:
+    Description: Dominio del bucket
+    Value: !GetAtt Bucket.DomainName
+    
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label:
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label:
+          default: Datos del Bucket
+        Parameters:
+          - Name
+    ParameterLabels:
+      Project: 
+        default: Nombre del Proyecto
+      Environment:
+        default: Nombre del ambiente
+      Name:
+        default: Nombre del bucket

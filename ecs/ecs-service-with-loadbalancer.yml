@@ -179,8 +179,7 @@ Resources:
       ContainerDefinitions:
         - !If
           - enablexray
-          -
-            Name: !Sub ${Project}-${Environment}-xray-daemon
+          - Name: !Sub ${Project}-${Environment}-xray-daemon
             Image: public.ecr.aws/xray/aws-xray-daemon@sha256:8d74426fd86f830c6793180dcefcba76ba8258eaf2deba68a612944d1845030d
               # Fn::ImportValue:
               #   !Sub ${Project}-${Environment}-EcrXRayUri
@@ -199,8 +198,7 @@ Resources:
           - !Ref AWS::NoValue
         - !If
           - enablecloudwatch
-          -
-            Name: cloudwatch-agent
+          - Name: cloudwatch-agent
             Image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest@sha256:f3427f46e4a7de9c2e6009ab7955924ed0454e6e021cff729ff7f9d24f13555b
             Essential: false
             Secrets:
@@ -254,6 +252,7 @@ Resources:
               awslogs-group: !Ref CloudWatchLogsGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
+
   ECSService:
     Type: AWS::ECS::Service
     Condition: requireService

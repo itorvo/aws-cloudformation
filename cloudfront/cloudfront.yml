@@ -1,6 +1,18 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Portal Web
 Parameters:
+  Project:
+    Description: Nombre del Proyecto
+    Type: String
+    Default: ito
+  Environment:
+    Description: Ambiente en que está siendo desplegado el stack
+    Type: String
+    AllowedValues:
+      - dev
+      - qa
+      - pdn
+    Default: dev
   CustomDomainFront:
     Description: Custom Domain Distribution
     Type: String
@@ -15,159 +27,27 @@ Parameters:
     Description: Version del Protocolo SSL
     Type: String
     Default: TLSv1.2_2021
-  Environment:
-    Description: Ambiente en que está siendo desplegado el stack
-    Type: String
-    AllowedValues:
-      - dev
-      - qa
-      - pdn
-    Default: dev
-  Project:
-    Description: Nombre del Proyecto
-    Type: String
-    Default: ito
   CloudFrontStatus:
     Type: String
     Default: true
     AllowedValues:
       - true
       - false
-  DomainBack:
+  ApiGatewayURL:
     Type: String
-    Default: "NO" # api.retiros.pragma.com.co
-    AllowedPattern: (NO)|((^api)\.(\w*\d*)((.pragma.com.co)))
-  S3KeyFileLambda:
+    Default: ''
+  HeaderName:
     Type: String
-    Description: Key de S3 del archivo con el código fuente de la lambda
-    Default: lambda-deployment-custom-resources.zip
-  DeploymentTime:
-    Description: Parametro para establecer el la creación de recursos custom
+    Default: ''
+  ArnSecretOriginVerifyHeader:
     Type: String
-    Default: 0
+    Default: ''
 Conditions:
   SinCustomDomainFront: !Equals [ "NO", !Ref CustomDomainFront ]
   SinCertificateKey: !Equals [ "NO", !Ref CertificateKey ]
   SinAlias: !Or [ Condition: SinCustomDomainFront, Condition: SinCertificateKey ]
-  SinDomainBack: !Equals [ "NO", !Ref DomainBack ]
   IsProduction: !Equals [ "pdn", !Ref Environment ]
-  CrearPoliticaHeaders: !Equals [ "pdn", !Ref Environment ]
 Resources:
-  # RoleLambdaEdgeOriginRequest:
-  #   Type: AWS::IAM::Role
-  #   Properties:
-  #     AssumeRolePolicyDocument:
-  #       Version: 2012-10-17
-  #       Statement:
-  #         - Effect: Allow
-  #           Principal:
-  #             Service:
-  #               - lambda.amazonaws.com
-  #               - edgelambda.amazonaws.com
-  #           Action: sts:AssumeRole
-  #     Description: Rol por defecto para lambda-edge
-  #     MaxSessionDuration: 3600
-  #     RoleName: !Sub ${Project}-${Environment}-role-lambda-edge-origin-request
-  # LambdaEdgeOriginRequest:
-  #   Type: AWS::Lambda::Function
-  #   Properties:
-  #     Code:
-  #       S3Bucket:
-  #         Fn::ImportValue: !Sub ${Project}-${Environment}-BucketDeploymentsName
-  #       S3Key: !Ref S3KeyFileLambda
-  #     Description: Lambda Edge de Origin Request
-  #     FunctionName: !Sub ${Project}-${Environment}-lambda-edge-origin-request
-  #     Handler: index.handler
-  #     MemorySize: 128
-  #     Role: !GetAtt RoleLambdaEdgeOriginRequest.Arn
-  #     Runtime: nodejs16.x
-  #     Timeout: 5
-  # LambdaEdgeOriginRequestVersion:
-  #   Type: Custom::LambdaVersion
-  #   DeletionPolicy: Retain
-  #   Properties:
-  #     ServiceToken:
-  #       Fn::ImportValue: !Sub ${Project}-${Environment}-DeploymentLambdaArn
-  #     FunctionName: !Ref LambdaEdgeOriginRequest
-  #     DeploymentTime: !Ref DeploymentTime
-  # PolicyResponseHeaders:
-  #   Type: AWS::CloudFront::ResponseHeadersPolicy
-  #   Condition: CrearPoliticaHeaders
-  #   Properties: 
-  #     ResponseHeadersPolicyConfig:
-  #       Name: !Sub ${Project}PolicyHeadersSeguridad${Project}${Environment}
-  #       Comment: !Sub Policy Headers de seguridad para ${Project}-${Environment}
-  #       CorsConfig: 
-  #         AccessControlAllowCredentials: true
-  #         AccessControlAllowHeaders: 
-  #           Items:
-  #             - 'x-permitted-cross-domain-policies'
-  #             - 'Cache-Control'
-  #             - 'Pragma'
-  #             - 'Server'
-  #         AccessControlAllowMethods: 
-  #           Items: 
-  #             - GET
-  #             - HEAD
-  #         AccessControlAllowOrigins:
-  #           Items:
-  #             - !Sub https://${CustomDomainFront}
-  #         AccessControlMaxAgeSec: 600
-  #         OriginOverride: true
-  #       CustomHeadersConfig:
-  #         Items:
-  #           - Header: x-permitted-cross-domain-policies
-  #             Override: true
-  #             Value: none
-  #           - Header: Cache-Control
-  #             Override: true
-  #             Value: no-store
-  #           - Header: Pragma
-  #             Override: true
-  #             Value: no-cache
-  #           - Header: Server
-  #             Override: true
-  #             Value: '-'
-  #           - Header: Permissions-Policy
-  #             Override: true
-  #             Value: !Sub 'fullscreen=(self "https://${CustomDomainFront}")'
-  #       SecurityHeadersConfig:
-  #         ContentSecurityPolicy:
-  #           ContentSecurityPolicy: !Sub default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; object-src 'self'; font-src https://fonts.gstatic.com; connect-src 'self' https://${DomainBack}; img-src 'self' https://${CustomDomainFront}; frame-src https://www.google.com
-  #           Override: true
-  #         ContentTypeOptions:
-  #           Override: true
-  #         FrameOptions:
-  #           FrameOption: DENY
-  #           Override: true
-  #         ReferrerPolicy:
-  #           Override: true
-  #           ReferrerPolicy: same-origin
-  #         StrictTransportSecurity:
-  #           AccessControlMaxAgeSec: 31536000
-  #           IncludeSubdomains: true
-  #           Override: true
-  #           Preload: true
-  #         XSSProtection:
-  #           ModeBlock: true
-  #           Override: true
-  #           Protection: true
-  
-  # CertificateAuthorityArn:
-  #   Type: AWS::CertificateManager::Certificate
-  #     Properties:
-  #       # CertificateAuthorityArn: String
-  #       CertificateTransparencyLoggingPreference: DISABLED
-  #       DomainName: String
-  #       DomainValidationOptions: 
-  #         - DomainValidationOption
-  #       KeyAlgorithm: String
-  #       SubjectAlternativeNames: 
-  #         - String
-  #       Tags: 
-  #         - Tag
-  #       ValidationMethod: String
-    
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -194,6 +74,32 @@ Resources:
             # ResponseHeadersPolicyId: !If [ CrearPoliticaHeaders, !Ref PolicyResponseHeaders, !Ref AWS::NoValue ]
             SmoothStreaming: false
             TargetOriginId: !Ref BucketFrontAssets
+            ViewerProtocolPolicy: redirect-to-https
+          - AllowedMethods:
+              - GET
+              - HEAD
+              # - DELETE
+              # - OPTIONS
+              # - PATCH
+              # - POST
+              # - PUT
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: false
+            DefaultTTL: 86400
+            ForwardedValues:
+              #API Gateway needs Authorization header with ID token generated by Cognito
+              Headers:
+              - Authorization
+              # accept query string
+              QueryString: true
+            MaxTTL: 31536000
+            MinTTL: 0
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            PathPattern: /api*
+            SmoothStreaming: false
+            TargetOriginId: !Sub
+                - "Custom-${apiurl}"
+                - apiurl: !Select [2, !Split ['/', !Ref ApiGatewayURL]]
             ViewerProtocolPolicy: redirect-to-https
         Comment: !Sub ${Project} Portal Web | ${Environment}
         CustomErrorResponses:
@@ -245,6 +151,23 @@ Resources:
             OriginPath: ''
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAIBucketFrontAssets}
+          - CustomOriginConfig:
+              HTTPPort: '80'
+              HTTPSPort: '443'
+              OriginSSLProtocols:
+                - TLSv1.2
+              OriginProtocolPolicy: https-only  #API Gateway doesn't support unencrypted (HTTP) endpoints
+            Id: !Sub
+              - "Custom-${apiurl}"
+              - apiurl: !Select [2, !Split ['/', !Ref ApiGatewayURL]]
+            DomainName: !Select [2, !Split ['/', !Ref ApiGatewayURL]]  #without :: and stage name
+            # User will complete the following custom header in console
+            # OriginCustomHeaders:
+            #  - HeaderName: !Ref HeaderName
+            #    HeaderValue: !Join ['', ['{{resolve:secretsmanager:', !Ref ArnSecretOriginVerifyHeader, ':SecretString:HEADERVALUE}}' ]]
+            OriginPath: !Sub  #stage name as path
+              - '/${stage}'
+              - stage: !Select [3, !Split ['/', !Ref ApiGatewayURL]]
         PriceClass: !If [ IsProduction, PriceClass_All, PriceClass_100 ]
         Restrictions:
           Fn::If:
