@@ -35,24 +35,28 @@ Parameters:
       - false
   ApiGatewayURL:
     Type: String
-    Default: ''
+    Default: https://4uecg97s23.execute-api.us-east-1.amazonaws.com/v1
   HeaderName:
     Type: String
-    Default: ''
-  ArnSecretOriginVerifyHeader:
+    Default: X-Origin-Verify
+  RequiredHeaderSecurity:
     Type: String
-    Default: ''
+    Default: false
+    AllowedValues:
+      - true
+      - false
 Conditions:
-  SinCustomDomainFront: !Equals [ "NO", !Ref CustomDomainFront ]
-  SinCertificateKey: !Equals [ "NO", !Ref CertificateKey ]
-  SinAlias: !Or [ Condition: SinCustomDomainFront, Condition: SinCertificateKey ]
-  IsProduction: !Equals [ "pdn", !Ref Environment ]
+  notCustomDomainFront: !Equals [ "NO", !Ref CustomDomainFront ]
+  notCertificateKey: !Equals [ "NO", !Ref CertificateKey ]
+  notAlias: !Or [ Condition: notCustomDomainFront, Condition: notCertificateKey ]
+  isProduction: !Equals [ "pdn", !Ref Environment ]
+  hasHeaderSecurity: !Equals [true, !Ref RequiredHeaderSecurity]
 Resources:
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Aliases: !If [ SinAlias, !Ref AWS::NoValue, !Ref CustomDomainFront ]
+        Aliases: !If [ notAlias, !Ref AWS::NoValue, !Ref CustomDomainFront ]
         CacheBehaviors:
           - AllowedMethods:
               - HEAD
@@ -135,7 +139,7 @@ Resources:
         DefaultRootObject: index.html
         Enabled: !Ref CloudFrontStatus
         HttpVersion: http2
-        IPV6Enabled: !If [ IsProduction, true, false ]
+        IPV6Enabled: !If [ isProduction, true, false ]
         Origins:
           - ConnectionAttempts: 3
             ConnectionTimeout: 10
@@ -162,16 +166,19 @@ Resources:
               - apiurl: !Select [2, !Split ['/', !Ref ApiGatewayURL]]
             DomainName: !Select [2, !Split ['/', !Ref ApiGatewayURL]]  #without :: and stage name
             # User will complete the following custom header in console
-            # OriginCustomHeaders:
-            #  - HeaderName: !Ref HeaderName
-            #    HeaderValue: !Join ['', ['{{resolve:secretsmanager:', !Ref ArnSecretOriginVerifyHeader, ':SecretString:HEADERVALUE}}' ]]
+            OriginCustomHeaders:
+             - !If
+                - hasHeaderSecurity
+                - HeaderName: !Ref HeaderName
+                  HeaderValue: !Join ['', ['{{resolve:secretsmanager:', !Ref OriginVerifyHeader, ':SecretString:HEADERVALUE}}' ]]
+                - !Ref AWS::NoValue
             OriginPath: !Sub  #stage name as path
               - '/${stage}'
               - stage: !Select [3, !Split ['/', !Ref ApiGatewayURL]]
-        PriceClass: !If [ IsProduction, PriceClass_All, PriceClass_100 ]
+        PriceClass: !If [ isProduction, PriceClass_All, PriceClass_100 ]
         Restrictions:
           Fn::If:
-            - IsProduction
+            - isProduction
             - Ref: AWS::NoValue
             - GeoRestriction:
                 Locations:
@@ -183,7 +190,7 @@ Resources:
                 RestrictionType: whitelist
         ViewerCertificate:
           Fn::If:
-            - SinAlias
+            - notAlias
             - CloudFrontDefaultCertificate: true
             - AcmCertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateKey}
               MinimumProtocolVersion: !Ref ProtocolVersion
@@ -257,3 +264,143 @@ Resources:
               - ''
               - - !GetAtt BucketFrontAssets.Arn
                 - /*
+  
+  OriginVerifyHeader:
+    Type: AWS::SecretsManager::Secret
+    Condition: hasHeaderSecurity
+    Properties:
+      Description: 'Origin Custom Header value for CloudFront'
+      GenerateSecretString:
+        SecretStringTemplate: '{"HEADERVALUE": "RandomHeader"}'
+        GenerateStringKey: "HEADERVALUE"
+        ExcludePunctuation: true
+
+
+  RotateFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: hasHeaderSecurity
+    Properties:
+      FunctionName: !Ref OriginSecretRotateFunction
+      Action: lambda:InvokeFunction
+      Principal: secretsmanager.amazonaws.com
+
+
+  OriginVerifyRotateSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    Condition: hasHeaderSecurity
+    Properties:
+      RotationLambdaARN: !GetAtt OriginSecretRotateFunction.Arn
+      RotationRules:
+        AutomaticallyAfterDays: 7
+      SecretId: !Ref OriginVerifyHeader
+
+
+  OriginSecretRotateFunction:
+    Type: AWS::Lambda::Function
+    Condition: hasHeaderSecurity
+    Properties:
+      Description: Serets Manager Rotation Lambda
+      Handler: index.handler
+      Runtime: python3.9
+      # Layers:
+      #   - !Ref PythonRequestsLayer
+      #VpcConfig: # For accessing RDS instance
+      #  SecurityGroupIds:
+      #    - !Ref LambdaSecurityGroup
+      #  SubnetIds:
+      #    - !Ref WAprivateLambdaSubnet1
+      Environment:
+        Variables:
+          WAFACLID: !GetAtt WafWebACLStack.Outputs.WebACLId
+          WAFACLNAME: !Select [0, !Split ['|', !GetAtt WafWebACLStack.Outputs.WebACLIdentifier ]]
+          CFDISTROID: !Ref CloudFrontDistribution
+          ORIGIID: !Sub
+              - "Custom-${apiurl}"
+              - apiurl: !Select [2, !Split ['/', !Ref ApiGatewayURL]]
+          HEADERNAME: !Ref HeaderName
+          ORIGINURL: !Ref ApiGatewayURL
+          WAFACLRULEID: !GetAtt WafWebACLStack.Outputs.RuleNameHeaderSecurity
+          APIENDPOINT: ApiGatewayURL
+      Role: !GetAtt OriginSecretRotateExecutionRole.Arn
+      Timeout: 60
+      Code:
+        S3Bucket:
+          Fn::ImportValue:
+            !Sub ${Project}-${AWS::AccountId}-BucketDeploymentsName
+        S3Key: secrets-manager-rotation.zip
+
+
+  OriginSecretRotateExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: hasHeaderSecurity
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: OriginVerifyRotatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+                - logs:DescribeLogStreams
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*OriginSecretRotateFunction*'
+            - Effect: Allow
+              Action:
+                - secretsmanager:DescribeSecret
+                - secretsmanager:GetSecretValue
+                - secretsmanager:PutSecretValue
+                - secretsmanager:UpdateSecretVersionStage
+              Resource: !Ref OriginVerifyHeader
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetRandomPassword
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - cloudfront:GetDistribution
+                - cloudfront:GetDistributionConfig
+                - cloudfront:ListDistributions
+                - cloudfront:UpdateDistribution
+              Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+            - Effect: Allow
+              Action:
+                - wafv2:*
+              Resource: !GetAtt WafWebACLStack.Outputs.WebACLArn
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+  
+
+  WafWebACLStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: hasHeaderSecurity
+    Properties:
+      TemplateURL: https://test-my-bucket-aws.s3.us-east-1.amazonaws.com/artifacts/nested_stacks/waf.yml
+      Parameters:
+        Environment: !Ref Environment
+        Project: !Ref Project
+        Scope: REGIONAL
+        ArnAPIGWStage: !Sub
+          - 'arn:aws:apigateway:${AWS::Region}::/restapis/${rest_api_id}/stages/${stage_name}'
+          - rest_api_id: !Select [0, !Split ['.' , !Select [2, !Split ['/', !Ref ApiGatewayURL]]]]
+            stage_name: !Select [3, !Split ['/', !Ref ApiGatewayURL]]
+        WithRulesCommonRuleSet: 'true'
+        WithRuleIpReputationList: 'true'
+        WithRulesKnownBadInputs: 'true'
+        WithRuleBlockXssAttack: 'true'
+        WithRuleBlockSQLinjectionAttack: 'true'
+        WithRuleHeaderSecurity: 'true'
+        HeaderName: !Ref HeaderName
+        OriginVerifyHeader: !Ref OriginVerifyHeader
+
+        
+  

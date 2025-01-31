@@ -71,6 +71,8 @@ Parameters:
     Default: X-Origin-Verify
     AllowedValues:
       - X-Origin-Verify
+  OriginVerifyHeader:
+    Type: String
 Conditions:
   isAPIG: !Equals [ !Ref Scope, 'REGIONAL']
   hasRulesCommonRuleSet: !Equals [ !Ref WithRulesCommonRuleSet, 'true']
@@ -81,13 +83,13 @@ Conditions:
   hasRulesHeaderSecurity: !Equals [ !Ref WithRuleHeaderSecurity, 'true']
 Resources:
   WebACL:
-    Type: 'AWS::WAFv2::WebACL'
+    Type: AWS::WAFv2::WebACL
     Properties:
       Name: !Sub ${Project}-${Environment}-waf-acl-${Scope}
       Scope: !Sub ${Scope}
       Description: !Sub Reglas de seguridad para ${Scope} en el ambiente ${Environment}
       DefaultAction:
-        Allow: {}
+        Block: {}
       VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
@@ -220,10 +222,15 @@ Resources:
           # - rest_api_id: !Select [0, !Split ['.' , !Select [2, !Split ['/', !Ref ApiGatewayURL]]]]
           #   stage_name: !Select [3, !Split ['/', !Ref ApiGatewayURL]]
 Outputs:
+  WebACLIdentifier:
+    Value: !Ref WebACL
   WebACLArn:
     Value: !GetAtt WebACL.Arn
   WebACLId:
     Value: !GetAtt WebACL.Id
+  RuleNameHeaderSecurity:
+    Value: RuleForHeaderSecurity
+    Condition: hasRulesHeaderSecurity
 Metadata: 
   AWS::CloudFormation::Interface: 
     ParameterGroups: 

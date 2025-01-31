@@ -5,6 +5,8 @@ import boto3
 import logging
 import os
 import json
+import requests
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -223,10 +225,33 @@ def test_secret(service_client, arn, token):
 
     """
     # This is where the secret should be tested against the service
-    value_result = service_client.get_secret_value(SecretId=arn, VersionId=token, VersionStage="AWSPENDING")
-    value = value_result["SecretString"]
+    # value_result = service_client.get_secret_value(SecretId=arn, VersionId=token, VersionStage="AWSPENDING")
+    # value = value_result["SecretString"]
 
-    logger.info("setSecret: Successfully access resource: %s." % (value))
+    get_secret_value_result = service_client.get_secret_value(SecretId=arn, VersionId=token, VersionStage="AWSPENDING")
+    secret_string = get_secret_value_result["SecretString"]
+    secret_value = json.loads(secret_string)['HEADERVALUE']
+
+
+    # HEADERNAME
+    header_name = os.environ.get("HEADERNAME")
+    api_endpoint = os.environ.get("APIENDPOINT")
+
+
+    payload = {}
+    headers = {
+        header_name: secret_value
+    }
+
+
+    # response = requests.request("GET", api_endpoint, headers=headers, data=payload)
+
+
+    # if response.status_code != 200:
+    #     logger.error("setSecret: Error calling resource: %s." % (response))
+    #     raise ValueError("setSecret: Error calling resource: %s." % (response))
+
+    logger.info("setSecret: Successfully access resource: %s." % (response))
 
 
 def finish_secret(service_client, arn, token):
