@@ -374,7 +374,9 @@ Resources:
             - Effect: Allow
               Action:
                 - wafv2:*
-              Resource: !GetAtt WafWebACLStack.Outputs.WebACLArn
+              Resource:
+                - !GetAtt WafWebACLStack.Outputs.WebACLArn
+                - '*'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole

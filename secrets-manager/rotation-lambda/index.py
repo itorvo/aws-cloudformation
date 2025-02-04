@@ -193,8 +193,12 @@ def update_waf_acl(acl_name, acl_id, rule_id, custom_header_value):
     rule = next((rule for rule in rules if rule['Name'] == rule_id), None)
     statements = rule['Statement']['OrStatement']['Statements']
 
-    for statement in statements:
-        statement['ByteMatchStatement']['SearchString'] = custom_header_value
+    # Preservar valor anterior
+    statements[0]['ByteMatchStatement']['SearchString'] = statements[1]['ByteMatchStatement']['SearchString']
+    # for statement in statements:
+
+    #Establece el valor nuevo
+    statements[1]['ByteMatchStatement']['SearchString'] = custom_header_value
     
     result = waf.update_web_acl(
         Name=acl_name,
