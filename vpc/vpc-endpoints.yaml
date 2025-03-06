@@ -53,6 +53,12 @@ Parameters:
     AllowedValues:
       - 'false'
       - 'true'
+  RequireEC2InstanceConnect:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
 Conditions:
   createXRay: !Equals [ 'true', !Ref RequireXRay ]
   createECR: !Equals [ 'true', !Ref RequireECR ]
@@ -61,6 +67,7 @@ Conditions:
   createS3: !Equals [ 'true', !Ref RequireS3 ]
   createDynamo: !Equals [ 'true', !Ref RequireDynamo ]
   createSecretsManager: !Equals [ 'true', !Ref RequireSecretsManager ]
+  createEc2InstanceConnect: !Equals [ 'true', !Ref RequireEC2InstanceConnect ]
 Resources:
 ## VPC Endpoints ##
   XRay:
@@ -192,6 +199,19 @@ Resources:
       SecurityGroupIds:
         - Fn::ImportValue:
             !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
+  
+  Ec2InstanceConnect:
+    Type: AWS::EC2::InstanceConnectEndpoint
+    Condition: createEc2InstanceConnect
+    Properties:
+      PreserveClientIp: false
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${Project}-${Environment}-SrvSub1
+      SecurityGroupIds:
+        - Fn::ImportValue:
+            !Sub ${Project}-${Environment}-SecurityGroupVpcEndPoints
+
 # Outputs:
 #   VPCEXRay:
 #     Condition: createResources
@@ -216,6 +236,8 @@ Metadata:
           - RequireAPI
           - RequireS3
           - RequireDynamo
+          - RequireSecretsManager
+          - RequireEC2InstanceConnect
     ParameterLabels: 
       Project: 
         default: Nombre del Proyecto
@@ -235,3 +257,5 @@ Metadata:
         default: Crear Endpoints para DynamoDb
       RequireSecretsManager: 
         default: Crear Endpoints para Secrets Manager
+      RequireEC2InstanceConnect:
+        default: Crear Endpoints para EC2 Instance Connect
