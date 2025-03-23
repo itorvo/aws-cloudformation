@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Creacion de VPC Lattice for APIGw Privado"
+
+Parameters:
+  # Nombre del servicio
+  Project:
+    Type: String
+    Default: ito
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, qa, prod]
+  DomainName:
+    Type: String
+    Default: opensearch
+  SecurityGroupId:
+    Type: String
+    Default: sg-0bf3c894bfd76a261
+  SubnetId:
+    Type: String
+    Default: subnet-0e49d9cc3e476b4ad
+  CreateDomain:
+    Type: String
+    Default: false
+    AllowedValues: [true, false]
+
+Conditions:
+  CreateDomainCondition: !Equals [ !Ref CreateDomain, true ]
+
+Resources:
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Condition: CreateDomainCondition
+    Properties:
+      ClusterConfig:
+        DedicatedMasterEnabled: false
+        InstanceCount: 1
+        InstanceType: t3.medium.search
+        MultiAZWithStandbyEnabled: false
+        ZoneAwarenessEnabled: false
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+        TLSSecurityPolicy: Policy-Min-TLS-1-0-2019-07
+      DomainName: !Ref DomainName
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 50
+        VolumeType: gp2
+      EncryptionAtRestOptions:
+        Enabled: false
+        # KmsKeyId:
+        #   'Fn::ImportValue': >-
+        #     clx-KmsKey-opensearch:ExportsOutputRefresopensearchsec7676592046343328
+      EngineVersion: OpenSearch_2.17
+      LogPublishingOptions: {}
+      NodeToNodeEncryptionOptions:
+        Enabled: false
+      # Tags:
+      #   - Key: Proyecto
+      #     Value: HubTransferencias_servicios
+      VPCOptions:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref SubnetId
+  
+  OpenSearchDomainAccessPolicy:
+    Type: 'Custom::OpenSearchAccessPolicy'
+    Condition: CreateDomainCondition
+    Properties:
+      ServiceToken:
+        !GetAtt OpenSearchDomainLambdaAdmin.Arn
+      Create:
+        'Fn::Join':
+          - ''
+          - - >-
+              {"action":"updateDomainConfig","service":"OpenSearch","parameters":{"DomainName":"
+            - !Ref OpenSearchDomain
+            - >-
+              ","AccessPolicies":"{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::437950194672:root\"},\"Resource\":\"
+            - !GetAtt OpenSearchDomain.Arn
+            - >-
+              /*\"}],\"Version\":\"2012-10-17\"}"},"outputPaths":["DomainConfig.AccessPolicies"],"physicalResourceId":{"id":"
+            - !Ref OpenSearchDomain
+            - 'AccessPolicy"}}'
+      Update:
+        'Fn::Join':
+          - ''
+          - - >-
+              {"action":"updateDomainConfig","service":"OpenSearch","parameters":{"DomainName":"
+            - !Ref OpenSearchDomain
+            - >-
+              ","AccessPolicies":"{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::437950194672:root\"},\"Resource\":\"
+            - !GetAtt OpenSearchDomain.Arn
+            - >-
+              /*\"}],\"Version\":\"2012-10-17\"}"},"outputPaths":["DomainConfig.AccessPolicies"],"physicalResourceId":{"id":"
+            - !Ref OpenSearchDomain
+            - 'AccessPolicy"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - >-
+        OpenSearchPolicyCustomResourcePolicy
+  
+  OpenSearchPolicyCustomResourcePolicy:
+    Type: 'AWS::IAM::Policy'
+    Condition: CreateDomainCondition
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 'es:UpdateDomainConfig'
+            Effect: Allow
+            Resource:
+              !GetAtt OpenSearchDomain.Arn
+        Version: '2012-10-17'
+      PolicyName: >-
+        OpenSearchPolicyCustomResourcePolicy
+      Roles:
+        - !Ref OpenSearchServiceRole
+    
+  OpenSearchServiceRole:
+    Type: 'AWS::IAM::Role'
+    Condition: CreateDomainCondition
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - 'Fn::Join':
+            - ''
+            - - 'arn:'
+              - !Ref AWS::Partition
+              - ':iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      
+  OpenSearchServiceRoleDefaultPolicy:
+    Type: 'AWS::IAM::Policy'
+    Condition: CreateDomainCondition
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'kms:CreateGrant'
+              - 'kms:Describe*'
+              - 'kms:List*'
+            Effect: Allow
+            Resource: '*'
+        Version: '2012-10-17'
+      PolicyName: OpenSearchServiceRoleDefaultPolicy
+      Roles:
+        - !Ref OpenSearchServiceRole
+    
+  OpenSearchDomainLambdaAdmin:
+    Type: 'AWS::Lambda::Function'
+    Condition: CreateDomainCondition
+    Properties:
+      Code:
+        S3Bucket: ito-437950194672-lambda-deployments
+        S3Key: lambda-opensearch.zip
+      Handler: index.handler
+      Role: !GetAtt OpenSearchServiceRole.Arn
+      Runtime: nodejs20.x
+      Timeout: 120
+    DependsOn:
+      - OpenSearchServiceRoleDefaultPolicy
+
+Outputs:
+  OpenSearchDomainId:
+    Description: 'OpenSearch Domain Id'
+    Value:
+      !GetAtt OpenSearchDomain.Id
+    Export:
+      Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Id
+  OpenSearchDomainArn:
+    Description: 'OpenSearch Domain Arn'
+    Value:
+      !GetAtt OpenSearchDomain.Arn
+    Export:
+      Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Arn
+  OpenSearchDomainDNS:
+    Description: 'OpenSearch Domain Endpoint'
+    Value:
+      !GetAtt OpenSearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Endpoint
+    
+    
+    

@@ -72,6 +72,12 @@ Parameters:
     AllowedValues:
       - false
       - true
+  AgentFluentBit:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
   EcrEncrytion:
     Type: String
     Default: KMS
@@ -86,6 +92,7 @@ Conditions:
   enablexray: !Equals [ true, !Ref AgentXRay ]
   enablecloudwatch: !Equals [ true, !Ref AgentCloudWatch ]
   enabledatadog: !Equals [ true, !Ref AgentDataDog ]
+  enableFluentBit: !Equals [ true, !Ref AgentFluentBit ]
   isEcrKmsKeyProvided: !Not [ !Equals [ !Ref EcrKmsKey, "" ] ]
 Resources:
   EcrRegistry:
@@ -173,6 +180,47 @@ Resources:
                 awslogs-region: !Ref AWS::Region
                 awslogs-stream-prefix: ecs
           - !Ref AWS::NoValue
+        - !If
+          - enableFluentBit
+          - Name: fluent-bit-agent
+            # Image: public.ecr.aws/aws-otel-test/aws-otel-collector:latest@sha256:5e2f1c5d9d5f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f
+            Image: public.ecr.aws/aws-observability/aws-for-fluent-bit:init-latest
+            Essential: false
+            User: 0
+            # Secrets:
+            #   - Name: AWS_REGION
+            #     ValueFrom:
+            #       Fn::ImportValue:
+            #         !Sub ${Project}-${Environment}-FluentBitAgentConfigArn
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: fluentbit
+            FirelensConfiguration:
+              Type: fluentbit
+              Options:
+                config-file-type: "file"
+                config-file-value: "/fluent-bit/config/extra.conf"
+          - !Ref AWS::NoValue
+        - !If
+          - enabledatadog
+          - Name: datadog-agent
+            Image: public.ecr.aws/datadog/agent:latest@sha256:5e2f1c5d9d5f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f9f9e2f
+            Essential: false
+            Secrets:
+              - Name: DD_API_KEY
+                ValueFrom:
+                  Fn::ImportValue:
+                    !Sub ${Project}-${Environment}-DataDogAgentConfigArn
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref CloudWatchLogsGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+          - !Ref AWS::NoValue
         - Name: !Sub ${Project}-${Environment}-${MicroServiceName}-container
           # EnvironmentFiles:
           #   - Type: s3
@@ -201,11 +249,27 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref Port
           LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref CloudWatchLogsGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: ecs
+            !If
+              - enableFluentBit
+              - 
+                LogDriver: awsfirelens
+                Options:
+                  aws_Region: us-east-1
+                  log-driver-buffer-limit: 10485760
+                  aws_Auth: "On"
+                  Suppress_Type_Name: "On"
+                  port: 443
+                  host: HOST_OPENSEARCH
+                  index: INDEX_OPENSEARCH
+                  tls: "On"
+                  type: doc
+                  Name: es
+              -
+                LogDriver: awslogs
+                Options:
+                  awslogs-group: !Ref CloudWatchLogsGroup
+                  awslogs-region: !Ref AWS::Region
+                  awslogs-stream-prefix: ecs
   
   ECSService:
     Type: AWS::ECS::Service
@@ -267,6 +331,7 @@ Metadata:
           - AgentXRay
           - AgentCloudWatch
           - AgentDataDog
+          - AgentFluentBit
       - Label:
           default: Cifrado de Imagen Docker
         Parameters:
@@ -307,3 +372,5 @@ Metadata:
         default: Tipo de Cifrado
       EcrKmsKey:
         default: KMS Key
+      AgentFluentBit:
+        default: Activar Agente FluentBit
