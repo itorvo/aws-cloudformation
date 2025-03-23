@@ -1,0 +1,44 @@
+digraph INFRA {
+  node [ color = "black", fillcolor = "#E6E6E6", height =1, style = "filled,bold,rounded", fontname = "Arial" ];
+  "ApiGateway" [ label = "ApiGateway
+(AWS::ApiGateway::RestApi)", shape =rectangle, fillcolor = "#E78F81" ];
+  "LambdaTest" [ label = "LambdaTest
+(AWS::Lambda::Function)", shape =rectangle, fillcolor = "#B7E0FF" ];
+  "LambdaTestPermission" [ label = "LambdaTestPermission
+(AWS::Lambda::Permission)", shape =rectangle ];
+  "ApiRest" [ label = "ApiRest
+(AWS::ApiGateway::RestApi)", shape =rectangle, fillcolor = "#E78F81" ];
+  "Deployment" [ label = "Deployment
+(AWS::ApiGateway::Deployment)", shape =rectangle ];
+  "Stage" [ label = "Stage
+(AWS::ApiGateway::Stage)", shape =rectangle ];
+  "WebACL" [ label = "WebACL
+(AWS::WAFv2::WebACL)" ];
+  "WafAPIGWAssociation" [ label = "WafAPIGWAssociation
+(AWS::WAFv2::WebACLAssociation)" ];
+  "XRay" [ label = "XRay
+(AWS::EC2::VPCEndpoint)" ];
+  "CloudWatchLogs" [ label = "CloudWatchLogs
+(AWS::EC2::VPCEndpoint)" ];
+  "EcrApi" [ label = "EcrApi
+(AWS::EC2::VPCEndpoint)" ];
+  "EcrDkr" [ label = "EcrDkr
+(AWS::EC2::VPCEndpoint)" ];
+  "ApiGatewayEndpoint" [ label = "ApiGatewayEndpoint
+(AWS::EC2::VPCEndpoint)" ];
+  "S3Endpoint" [ label = "S3Endpoint
+(AWS::EC2::VPCEndpoint)" ];
+  "DynamoDb" [ label = "DynamoDb
+(AWS::EC2::VPCEndpoint)" ];
+  "SecretsManager" [ label = "SecretsManager
+(AWS::EC2::VPCEndpoint)" ];
+  "Ec2InstanceConnect" [ label = "Ec2InstanceConnect
+(AWS::EC2::InstanceConnectEndpoint)" ];
+  "LambdaTestPermission" -> "LambdaTest";
+  "LambdaTestPermission" -> "ApiRest";
+  "ApiRest" -> "LambdaTest";
+  "Deployment" -> "ApiRest";
+  "Stage" -> "Deployment";
+  "Stage" -> "ApiRest";
+  "WafAPIGWAssociation" -> "WebACL";
+}
