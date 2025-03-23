@@ -2,7 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: "Creacion de VPC Lattice for APIGw Privado"
 
 Parameters:
-  # Nombre del servicio
   Project:
     Type: String
     Default: ito
@@ -19,18 +18,30 @@ Parameters:
   SubnetId:
     Type: String
     Default: subnet-0e49d9cc3e476b4ad
-  CreateDomain:
+  RequireOpenSearchDomain:
     Type: String
     Default: false
     AllowedValues: [true, false]
+  RequireOpenSearchApp:
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+  UserAdminApp:
+    Type: String
+    Default: raul.vergara
 
 Conditions:
-  CreateDomainCondition: !Equals [ !Ref CreateDomain, true ]
+  createDomainCondition: !Equals [ !Ref RequireOpenSearchDomain, true ]
+  createcApp: !Equals [ !Ref RequireOpenSearchApp, true ]
+  createApplicationCondition:
+    !And
+      - !Condition createDomainCondition
+      - !Condition createcApp
 
 Resources:
   OpenSearchDomain:
     Type: AWS::OpenSearchService::Domain
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       ClusterConfig:
         DedicatedMasterEnabled: false
@@ -66,7 +77,7 @@ Resources:
   
   OpenSearchDomainAccessPolicy:
     Type: 'Custom::OpenSearchAccessPolicy'
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       ServiceToken:
         !GetAtt OpenSearchDomainLambdaAdmin.Arn
@@ -103,7 +114,7 @@ Resources:
   
   OpenSearchPolicyCustomResourcePolicy:
     Type: 'AWS::IAM::Policy'
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       PolicyDocument:
         Statement:
@@ -119,7 +130,7 @@ Resources:
     
   OpenSearchServiceRole:
     Type: 'AWS::IAM::Role'
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       AssumeRolePolicyDocument:
         Statement:
@@ -137,7 +148,7 @@ Resources:
       
   OpenSearchServiceRoleDefaultPolicy:
     Type: 'AWS::IAM::Policy'
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       PolicyDocument:
         Statement:
@@ -154,7 +165,7 @@ Resources:
     
   OpenSearchDomainLambdaAdmin:
     Type: 'AWS::Lambda::Function'
-    Condition: CreateDomainCondition
+    Condition: createDomainCondition
     Properties:
       Code:
         S3Bucket: ito-437950194672-lambda-deployments
@@ -166,25 +177,79 @@ Resources:
     DependsOn:
       - OpenSearchServiceRoleDefaultPolicy
 
+  OpenSearchApplication:
+    Type: AWS::OpenSearchService::Application
+    Condition: createApplicationCondition
+    Properties:
+      AppConfigs: 
+        - Key: opensearchDashboards.dashboardAdmin.users
+          Value: !Sub arn:aws:iam::${AWS::AccountId}:user/${UserAdminApp}
+      DataSources: 
+        - DataSourceArn: !GetAtt OpenSearchDomain.Arn
+          DataSourceDescription: OpenSearch Service
+      Name: !Sub ${Project}${Environment}opensearchapp
+
 Outputs:
   OpenSearchDomainId:
     Description: 'OpenSearch Domain Id'
-    Value:
-      !GetAtt OpenSearchDomain.Id
+    Condition: createDomainCondition
+    Value: !GetAtt OpenSearchDomain.Id
     Export:
       Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Id
   OpenSearchDomainArn:
     Description: 'OpenSearch Domain Arn'
-    Value:
-      !GetAtt OpenSearchDomain.Arn
+    Condition: createDomainCondition
+    Value: !GetAtt OpenSearchDomain.Arn
     Export:
       Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Arn
   OpenSearchDomainDNS:
     Description: 'OpenSearch Domain Endpoint'
-    Value:
-      !GetAtt OpenSearchDomain.DomainEndpoint
+    Condition: createDomainCondition
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
     Export:
       Name: !Sub ${Project}-${Environment}-OpenSearch-${DomainName}-Endpoint
     
-    
-    
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: Datos del Proyecto
+        Parameters: 
+          - Project
+          - Environment
+      - Label: 
+          default: Información del Servicio
+        Parameters: 
+          - DomainName
+      - Label:
+          default: Datos de Red
+        Parameters:
+          - SecurityGroupId
+          - SubnetId
+      - Label:
+          default: Configuración de Recursos
+        Parameters:
+          - RequireOpenSearchDomain
+          - RequireOpenSearchApp
+      - Label:
+          default: Administrador de Aplicación
+        Parameters:
+          - UserAdminApp
+    ParameterLabels: 
+      Project: 
+        default: Nombre del Proyecto
+      Environment: 
+        default: Nombre del Ambiente
+      DomainName:
+        default: Nombre del Dominio
+      SecurityGroupId:
+        default: ID de Grupo de Seguridad
+      SubnetId:
+        default: ID de Subnet Privada
+      RequireOpenSearchDomain:
+        default: Crear Dominio OpenSearch
+      RequireOpenSearchApp:
+        default: Crear Aplicación OpenSearch
+      UserAdminApp:
+        default: Usuario Administrador de Aplicación
+      

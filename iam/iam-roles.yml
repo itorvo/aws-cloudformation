@@ -79,6 +79,7 @@ Resources:
               - sqs:SendMessage
               - sns:Publish
               - s3:*
+              - es:*
             Resource: '*'
       Roles:
         - !Ref ECSTaskExecutionRole

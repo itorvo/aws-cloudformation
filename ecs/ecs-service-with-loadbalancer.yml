@@ -241,8 +241,8 @@ Resources:
             FirelensConfiguration:
               Type: fluentbit
               Options:
-                config-file-type: "file"
-                config-file-value: "/fluent-bit/config/extra.conf"
+                config-file-type: file
+                config-file-value: /fluent-bit/configs/parse-json.conf
           - !Ref AWS::NoValue
         - !If
           - enabledatadog
@@ -305,8 +305,10 @@ Resources:
                   aws_Auth: "On"
                   Suppress_Type_Name: "On"
                   port: 443
-                  host: HOST_OPENSEARCH
-                  index: INDEX_OPENSEARCH
+                  host:
+                    Fn::ImportValue:
+                      !Sub ${Project}-${Environment}-OpenSearch-opensearch-dummy-Endpoint
+                  index: dummy
                   tls: "On"
                   type: doc
                   Name: es
